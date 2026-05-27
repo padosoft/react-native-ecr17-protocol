@@ -76,3 +76,27 @@ TEST(Protocol, PaymentRejectsOversizedTerminalId) {
 TEST(Protocol, StatusRejectsOversizedTerminalId) {
     EXPECT_THROW(Ecr17Protocol::buildStatusMessage("123456789"), std::invalid_argument);
 }
+
+// Reversal request "S" layout (1-based spec positions):
+//   1 8 Terminal ID · 9 1 Reserved · 10 1 'S' · 11 8 Cash register ID
+//   19 6 STAN · 25 1 Presence of GT data · 26 1 Reserved  => 26 bytes
+TEST(Protocol, ReversalMessageLayout) {
+    std::string m = Ecr17Protocol::buildReversalMessage("12345678", "87654321", "000123");
+    ASSERT_EQ(m.size(), 26u);
+    EXPECT_EQ(m.substr(0, 8), "12345678");
+    EXPECT_EQ(m[8], '0');
+    EXPECT_EQ(m[9], 'S');
+    EXPECT_EQ(m.substr(10, 8), "87654321");
+    EXPECT_EQ(m.substr(18, 6), "000123");
+    EXPECT_EQ(m[24], '0');
+    EXPECT_EQ(m[25], '0');
+}
+
+TEST(Protocol, ReversalDefaultStanIsNoCheck) {
+    std::string m = Ecr17Protocol::buildReversalMessage("12345678", "87654321");
+    EXPECT_EQ(m.substr(18, 6), "000000");
+}
+
+TEST(Protocol, ReversalRejectsOversizedStan) {
+    EXPECT_THROW(Ecr17Protocol::buildReversalMessage("1", "2", "1234567"), std::invalid_argument);
+}

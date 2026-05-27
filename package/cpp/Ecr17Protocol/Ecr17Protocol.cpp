@@ -57,4 +57,20 @@ std::string Ecr17Protocol::buildStatusMessage(const std::string& terminalId) {
     return m;
 }
 
+std::string Ecr17Protocol::buildReversalMessage(const std::string& terminalId,
+                                                const std::string& cashRegisterId,
+                                                const std::string& stan) {
+    std::string m;
+
+    m += leftPad(terminalId, 8);     // pos 1  : terminal id
+    m += "0";                        // pos 9  : reserved
+    m += "S";                        // pos 10 : message code
+    m += leftPad(cashRegisterId, 8); // pos 11 : cash register id
+    m += leftPad(stan, 6);           // pos 19 : STAN ("000000" = no check)
+    m += "0";                        // pos 25 : presence of additional GT data
+    m += "0";                        // pos 26 : reserved
+
+    return m;  // 26 bytes
+}
+
 }  // namespace margelo::nitro::ecr17
