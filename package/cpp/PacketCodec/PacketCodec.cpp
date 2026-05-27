@@ -75,6 +75,17 @@ DecodedPacket PacketCodec::decode(const std::vector<uint8_t>& data) {
             };
         }
 
+        // The spec mandates SOH + 20-char message + EOT. Reject any frame whose
+        // final byte is not EOT so that garbage or a truncated read is never
+        // silently accepted as a valid progress update.
+        if (data.back() != EOT) {
+            return {
+                PacketType::UNKNOWN,
+                "",
+                false,
+            };
+        }
+
         std::string payload(data.begin() + 1, data.end() - 1);
 
         return {
