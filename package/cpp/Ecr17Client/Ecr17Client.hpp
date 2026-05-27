@@ -38,7 +38,7 @@ class HybridEcr17Client : public HybridEcr17ClientSpec {
     // --- Events ---
     void setOnProgress(const std::function<void(const ProgressEvent&)>& callback) override;
     void setOnReceiptLine(const std::function<void(const ReceiptLine&)>& callback) override;
-    void setOnConnectionStateChange(const std::function<void(const ConnectionState&)>& callback) override;
+    void setOnConnectionStateChange(const std::function<void(ConnectionState)>& callback) override;
 
    protected:
     Ecr17Config config_;

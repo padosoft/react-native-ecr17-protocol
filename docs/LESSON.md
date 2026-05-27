@@ -55,4 +55,24 @@
   if `nitrogen` succeeds, the spec types are nitro-compatible. Generated async
   signature confirmed: `Promise<T>` → `virtual std::shared_ptr<Promise<T>> m() = 0;`
   and callbacks → `const std::function<void(const T&)>&`.
-- (add entries as Copilot/CI feedback arrives)
+- **`copilot --autopilot --yolo -p "/review …"` does NOT just report — it EDITS
+  and COMMITS autonomously.** Treat its output as proposals to VERIFY, never trust
+  blindly (receiving-code-review discipline). In Phase 0 it: (good) added an
+  EOT-terminator check to the SOH decode branch + a regression test; (bad) wrote
+  `Ecr17Client` stubs that would not compile.
+- **Copilot's Nitro/C++ knowledge is unreliable** — it got two things wrong:
+  1. `Promise<T>::async` takes `std::function<T()>` (lambda **no args, returns T**).
+     Copilot wrote `[](auto& res){ … }` (resolver-style) → won't compile. Correct
+     stub: `Promise<T>::async([]() -> T { throw …; })`; for void:
+     `Promise<void>::async([]() { throw …; })`.
+  2. Callback param types must EXACTLY match the generated spec. Enums are passed
+     **by value**: spec is `std::function<void(ConnectionState)>` (NOT
+     `const ConnectionState&`); structs are `const T&`
+     (`const ProgressEvent&`, `const ReceiptLine&`). A mismatched `override`
+     silently becomes a new method → "cannot instantiate abstract class".
+- **EOT check (kept from Copilot):** SOH/progress frames must end in `EOT (0x04)`;
+  `decode()` now rejects SOH frames whose last byte != EOT.
+- The C++ unit-test target does NOT compile `Ecr17Client.cpp` (only Lcr,
+  PacketCodec, Ecr17Protocol + tests), so client-layer compile errors are NOT
+  caught by the GoogleTest CI — they need the Android/iOS build jobs (Phase 8).
+  Verify client/nitro C++ against the generated headers by hand until then.
