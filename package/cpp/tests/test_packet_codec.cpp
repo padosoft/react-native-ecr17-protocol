@@ -124,3 +124,27 @@ TEST(PacketCodec, DecodeUnknownLeadByte) {
     EXPECT_EQ(decoded.type, PacketType::UNKNOWN);
     EXPECT_FALSE(decoded.validLrc);
 }
+
+// Regression: trailing bytes after a complete frame's LRC must not be silently
+// accepted (the LRC must be the final byte).
+TEST(PacketCodec, DecodeStxWithTrailingBytesAfterLrcIsUnknown) {
+    PacketCodec codec(LrcMode::STD);
+    auto frame = codec.encodeApplication("AB");  // STX A B ETX LRC
+    frame.push_back(0x00);                        // stray trailing byte
+    DecodedPacket decoded = codec.decode(frame);
+    EXPECT_EQ(decoded.type, PacketType::UNKNOWN);
+    EXPECT_FALSE(decoded.validLrc);
+}
+
+// Regression: a coalesced read holding two frames must not be reported as one
+// valid APPLICATION packet (which would silently drop the second frame).
+// Framing/splitting a byte stream is the transport layer's job.
+TEST(PacketCodec, DecodeCoalescedFramesIsUnknown) {
+    PacketCodec codec(LrcMode::STD);
+    auto first = codec.encodeApplication("AB");
+    auto second = codec.encodeApplication("CD");
+    first.insert(first.end(), second.begin(), second.end());
+    DecodedPacket decoded = codec.decode(first);
+    EXPECT_EQ(decoded.type, PacketType::UNKNOWN);
+    EXPECT_FALSE(decoded.validLrc);
+}
