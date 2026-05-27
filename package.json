@@ -1,0 +1,15 @@
+{
+	"name": "react-native-ecr17-protocol",
+	"private": true,
+	"author": "padosoft",
+	"packageManager": "bun@1.3.13",
+	"workspaces": [
+		"package",
+		"example"
+	],
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.16",
+		"@padosoft/config": "^1.2.2",
+		"typescript": "^6.0.3"
+	}
+}
