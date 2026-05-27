@@ -6,7 +6,6 @@
 		"jsx": "react",
 		"lib": ["esnext"],
 		"module": "esnext",
-		"moduleResolution": "node",
 		"noEmit": false,
 		"skipLibCheck": true,
 		"target": "esnext",
