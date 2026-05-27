@@ -1,0 +1,102 @@
+{
+	"name": "react-native-ecr17",
+	"version": "1.0.0",
+	"description": "react-native-ecr17 is a react native package built with Nitro",
+	"main": "./lib/commonjs/index.js",
+	"module": "./lib/module/index.js",
+	"types": "./lib/typescript/src/index.d.ts",
+	"react-native": "src/index",
+	"source": "src/index",
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"clean": "git clean -dfX",
+		"build": "bun run typecheck && bob build",
+		"codegen": "nitrogen --logLevel=\"debug\" && bun run build"
+	},
+	"keywords": [
+		"react-native",
+		"react-native-ecr17"
+	],
+	"files": [
+		"src",
+		"react-native.config.js",
+		"lib",
+		"nitrogen",
+		"cpp",
+		"nitro.json",
+		"android/build.gradle",
+		"android/fix-prefab.gradle",
+		"android/gradle.properties",
+		"android/CMakeLists.txt",
+		"android/src",
+		"ios/**/*.h",
+		"ios/**/*.m",
+		"ios/**/*.mm",
+		"ios/**/*.cpp",
+		"ios/**/*.swift",
+		"app.plugin.js",
+		"*.podspec",
+		"README.md"
+	],
+	"workspaces": [
+		"example"
+	],
+	"repository": "https://github.com/padosoft/react-native-ecr17.git",
+	"author": "padosoft",
+	"license": "MIT",
+	"bugs": "https://github.com/padosoft/react-native-ecr17/issues",
+	"homepage": "https://github.com/padosoft/react-native-ecr17#readme",
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org/"
+	},
+	"devDependencies": {
+		"@types/react": "19.2.0",
+		"nitrogen": "0.35.8",
+		"react": "19.2.3",
+		"react-native-builder-bob": "^0.41.0",
+		"react-native-nitro-modules": "0.35.8",
+		"typescript": "^6.0.3"
+	},
+	"peerDependencies": {
+		"react": "*",
+		"react-native": "*",
+		"react-native-nitro-modules": "*"
+	},
+	"eslintConfig": {
+		"root": true,
+		"extends": [
+			"@react-native",
+			"prettier"
+		],
+		"plugins": [
+			"prettier"
+		],
+		"rules": {
+			"prettier/prettier": [
+				"warn",
+				{
+					"quoteProps": "consistent",
+					"singleQuote": true,
+					"tabWidth": 2,
+					"trailingComma": "es5",
+					"useTabs": false
+				}
+			]
+		}
+	},
+	"react-native-builder-bob": {
+		"source": "src",
+		"output": "lib",
+		"targets": [
+			"commonjs",
+			"module",
+			[
+				"typescript",
+				{
+					"project": "tsconfig.json"
+				}
+			]
+		]
+	}
+}

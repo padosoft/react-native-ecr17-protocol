@@ -1,0 +1,26 @@
+{
+	"$schema": "https://json.schemastore.org/tsconfig",
+	"extends": "@padosoft/config/typescript/base",
+	"compilerOptions": {
+		"esModuleInterop": true,
+		"jsx": "react",
+		"lib": ["esnext"],
+		"module": "esnext",
+		"moduleResolution": "node",
+		"noEmit": false,
+		"skipLibCheck": true,
+		"target": "esnext",
+		"verbatimModuleSyntax": true
+	},
+	"exclude": [
+		"**/node_modules",
+		"**/lib",
+		"**/.eslintrc.js",
+		"**/.prettierrc.js",
+		"**/jest.config.js",
+		"**/babel.config.js",
+		"**/metro.config.js",
+		"**/tsconfig.json"
+	],
+	"include": ["src/**/*", "nitrogen/**/*.json"]
+}
