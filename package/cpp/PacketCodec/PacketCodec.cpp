@@ -97,9 +97,14 @@ DecodedPacket PacketCodec::decode(const std::vector<uint8_t>& data) {
 
         size_t etxIndex = std::distance(data.begin(), etxIt);
 
-        // The LRC is the byte immediately after ETX (STX + payload + ETX + LRC).
-        // If nothing follows ETX the frame is truncated and cannot be validated.
-        if (etxIndex + 1 >= data.size()) {
+        // A well-formed application frame is exactly STX + payload + ETX + LRC,
+        // so the LRC must be the final byte. Reject both a truncated frame (no
+        // LRC after ETX) and a buffer with trailing bytes -- e.g. a coalesced
+        // socket read holding a second frame ("STX..ETX LRC STX..") or garbage
+        // after the LRC. Splitting a byte stream into individual frames is the
+        // transport layer's responsibility, and DecodedPacket cannot carry the
+        // unconsumed remainder.
+        if (etxIndex + 2 != data.size()) {
             return {
                 PacketType::UNKNOWN,
                 "",
