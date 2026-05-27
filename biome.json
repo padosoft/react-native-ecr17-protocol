@@ -1,0 +1,13 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+	"extends": ["@padosoft/config/tools/biome"],
+
+	"files": {
+		"includes": [
+			"example/**/*.ts",
+			"example/**/*.tsx",
+			"packages/**/*.ts",
+			"packages/**/*.tsx"
+		]
+	}
+}

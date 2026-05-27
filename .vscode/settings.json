@@ -1,0 +1,29 @@
+{
+	"[javascript]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[javascriptreact]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[typescript]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[typescriptreact]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"editor.codeActionsOnSave": {
+		"source.fixAll.biome": "explicit",
+		"source.organizeImports.biome": "explicit",
+		"source.sortMembers": "explicit"
+	},
+	"editor.defaultFormatter": "biomejs.biome",
+	"editor.formatOnSave": true,
+	"typescript.experimental.expandableHover": true,
+	"js/ts.preferences.preferTypeOnlyAutoImports": true,
+	"js/ts.tsdk.path": "node_modules\\typescript\\lib",
+	"json.schemaDownload.trustedDomains": {
+		"https://json.schemastore.org/": true,
+		"https://biomejs.dev": true,
+		"https://nitro.margelo.com": true
+	}
+}
