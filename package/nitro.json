@@ -14,6 +14,16 @@
 				"language": "c++",
 				"implementationClassName": "HybridEcr17Client"
 			}
+		},
+		"Ecr17Transport": {
+			"ios": {
+				"language": "swift",
+				"implementationClassName": "HybridEcr17Transport"
+			},
+			"android": {
+				"language": "kotlin",
+				"implementationClassName": "HybridEcr17Transport"
+			}
 		}
 	},
 	"ignorePaths": ["**/node_modules"]
