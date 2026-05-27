@@ -42,6 +42,12 @@ class HybridEcr17Client : public HybridEcr17ClientSpec {
 
    protected:
     Ecr17Config config_;
+
+    // Event callbacks set from JS; invoked by the session during an exchange
+    // (progress display, streamed receipt lines, connection state changes).
+    std::function<void(const ProgressEvent&)> onProgress_{};
+    std::function<void(const ReceiptLine&)> onReceiptLine_{};
+    std::function<void(ConnectionState)> onConnectionStateChange_{};
 };
 
 }  // namespace margelo::nitro::ecr17

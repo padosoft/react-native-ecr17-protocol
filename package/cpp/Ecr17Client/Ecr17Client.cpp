@@ -90,10 +90,16 @@ std::shared_ptr<Promise<VasResult>> HybridEcr17Client::vas(const std::string&) {
     return Promise<VasResult>::async([]() -> VasResult { notImplemented("vas"); });
 }
 
-void HybridEcr17Client::setOnProgress(const std::function<void(const ProgressEvent&)>&) {}
+void HybridEcr17Client::setOnProgress(const std::function<void(const ProgressEvent&)>& callback) {
+    onProgress_ = callback;
+}
 
-void HybridEcr17Client::setOnReceiptLine(const std::function<void(const ReceiptLine&)>&) {}
+void HybridEcr17Client::setOnReceiptLine(const std::function<void(const ReceiptLine&)>& callback) {
+    onReceiptLine_ = callback;
+}
 
-void HybridEcr17Client::setOnConnectionStateChange(const std::function<void(ConnectionState)>&) {}
+void HybridEcr17Client::setOnConnectionStateChange(const std::function<void(ConnectionState)>& callback) {
+    onConnectionStateChange_ = callback;
+}
 
 }  // namespace margelo::nitro::ecr17
