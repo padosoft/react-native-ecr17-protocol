@@ -1,5 +1,8 @@
 #include "PacketCodec.hpp"
 
+#include <algorithm>  // std::find
+#include <iterator>   // std::distance
+
 namespace margelo::nitro::ecr17 {
 
 PacketCodec::PacketCodec(LrcMode mode) : lrcMode_(mode) {}
@@ -61,10 +64,21 @@ DecodedPacket PacketCodec::decode(const std::vector<uint8_t>& data) {
     }
 
     if (first == SOH) {
+        // Progress update packet: SOH + message + EOT (no LRC). We need at least
+        // SOH and the trailing EOT before stripping the first/last byte,
+        // otherwise the iterator range below would be invalid (last < first).
+        if (data.size() < 2) {
+            return {
+                PacketType::UNKNOWN,
+                "",
+                false,
+            };
+        }
+
         std::string payload(data.begin() + 1, data.end() - 1);
 
         return {
-            PacketType::STATUS,
+            PacketType::PROGRESS,
             payload,
             true,
         };
@@ -83,9 +97,19 @@ DecodedPacket PacketCodec::decode(const std::vector<uint8_t>& data) {
 
         size_t etxIndex = std::distance(data.begin(), etxIt);
 
+        // The LRC is the byte immediately after ETX (STX + payload + ETX + LRC).
+        // If nothing follows ETX the frame is truncated and cannot be validated.
+        if (etxIndex + 1 >= data.size()) {
+            return {
+                PacketType::UNKNOWN,
+                "",
+                false,
+            };
+        }
+
         std::string payload(data.begin() + 1, data.begin() + etxIndex);
 
-        uint8_t rxLrc = data.back();
+        uint8_t rxLrc = data[etxIndex + 1];
 
         uint8_t calcLrc = Lrc::compute(payload, lrcMode_);
 

@@ -9,7 +9,7 @@ class Ecr17Protocol {
     static std::string buildPaymentMessage(const std::string& terminalId,
                                            const std::string& cashRegisterId, int amountCents);
 
-    static std::string Ecr17Protocol::buildStatusMessage(const std::string& terminalId);
+    static std::string buildStatusMessage(const std::string& terminalId);
 };
 
 }  // namespace margelo::nitro::ecr17
