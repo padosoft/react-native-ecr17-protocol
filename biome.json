@@ -6,8 +6,8 @@
 		"includes": [
 			"example/**/*.ts",
 			"example/**/*.tsx",
-			"packages/**/*.ts",
-			"packages/**/*.tsx"
+			"package/**/*.ts",
+			"package/**/*.tsx"
 		]
 	}
 }
