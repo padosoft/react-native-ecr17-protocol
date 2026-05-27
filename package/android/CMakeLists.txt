@@ -9,10 +9,13 @@ set (CMAKE_CXX_STANDARD 20)
 add_compile_options(-DRN_SERIALIZABLE_STATE=1)
 
 # Define C++ library and add all sources
-add_library(${PACKAGE_NAME} SHARED 
+add_library(${PACKAGE_NAME} SHARED
 	src/main/cpp/cpp-adapter.cpp
 	../cpp/Ecr17.cpp
-        
+	../cpp/Ecr17Client/Ecr17Client.cpp
+	../cpp/Ecr17Protocol/Ecr17Protocol.cpp
+	../cpp/Lcr/Lcr.cpp
+	../cpp/PacketCodec/PacketCodec.cpp
 )
 
 # Add Nitrogen specs :)
