@@ -8,24 +8,70 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
+#include <utility>
 
 #include "Ecr17Protocol/Ecr17Protocol.hpp"
 #include "Ecr17Response/Ecr17Response.hpp"
 #include "Session/RetryPolicy.hpp"
 
 // Commands run on Nitro's C++ thread pool. On Android, those worker threads are
-// NOT attached to the JVM, so calling the Kotlin transport through the generated
-// JNI bridge fails with "Unable to retrieve jni environment. Is the thread
-// attached?". ECR17_JNI_THREAD_GUARD attaches the current thread for its scope
-// (RAII) on Android; it's a no-op on iOS (no JVM).
+// NOT attached to the JVM, and — even once attached — JNI `FindClass` on an
+// attached worker thread resolves against the *system* class loader, which can't
+// see app/NitroModules classes (e.g. com.margelo.nitro.core.ArrayBuffer, looked
+// up lazily by the generated transport bridge in `send()` via JArrayBuffer::wrap).
+// That yields "Unable to retrieve jni environment" (no JNIEnv) or
+// "ClassNotFoundException ... DexPathList[... /system/lib64 ...]" (wrong loader).
 #ifdef __ANDROID__
 #include <fbjni/fbjni.h>
-#define ECR17_JNI_THREAD_GUARD ::facebook::jni::ThreadScope __ecr17JniScope
-#else
-#define ECR17_JNI_THREAD_GUARD ((void)0)
 #endif
 
 namespace margelo::nitro::ecr17 {
+
+namespace {
+
+// Runs `fn` on Android under fbjni's ThreadScope::WithClassLoader, which attaches
+// the current thread to the JVM AND installs fbjni's cached app class loader for
+// the duration — so every JNI FindClass inside (including NitroModules' lazy
+// ArrayBuffer lookup) resolves app classes, not the system loader. On iOS (no JVM)
+// `fn` is just called directly. Returns whatever `fn` returns (incl. void) and
+// propagates exceptions, so the caller's try/catch and return-value logic is
+// unchanged. WithClassLoader takes a `std::function<void()>`, so on Android the
+// result is captured in a local and any exception via std::exception_ptr, then
+// rethrown after the scope. `fn` is a lambda, so a `return` inside it returns from
+// the lambda (not the caller) on BOTH platforms — safe in value-returning callers.
+template <typename Fn>
+auto runOnJvmThread(Fn&& fn) -> decltype(fn()) {
+#ifdef __ANDROID__
+    using Ret = decltype(fn());
+    std::exception_ptr err;
+    if constexpr (std::is_void_v<Ret>) {
+        ::facebook::jni::ThreadScope::WithClassLoader([&]() {
+            try {
+                fn();
+            } catch (...) {
+                err = std::current_exception();
+            }
+        });
+        if (err) std::rethrow_exception(err);
+    } else {
+        std::optional<Ret> result;
+        ::facebook::jni::ThreadScope::WithClassLoader([&]() {
+            try {
+                result.emplace(fn());
+            } catch (...) {
+                err = std::current_exception();
+            }
+        });
+        if (err) std::rethrow_exception(err);
+        return std::move(*result);
+    }
+#else
+    return fn();
+#endif
+}
+
+}  // namespace
 
 using margelo::nitro::HybridObjectRegistry;
 using margelo::nitro::Promise;
@@ -269,24 +315,26 @@ void HybridEcr17Client::ensureInit() {
 }
 
 void HybridEcr17Client::ensureConnected() {
-    ECR17_JNI_THREAD_GUARD;  // attach this worker thread for the transport JNI calls
-    ensureInit();
-    if (transport_->isConnected()) {
-        return;
-    }
-    // Auto-connect: block this worker thread until the native transport connects
-    // (or throw on failure). keepAlive leaves the socket open for reuse.
-    if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::CONNECTING);
-    const double port = config_.port.value_or(10000);
-    const double timeout = config_.connectionTimeoutMs.value_or(5000);
-    try {
-        transport_->connect(config_.host, port, timeout)->await().get();
-    } catch (...) {
-        // Don't leave listeners stuck on CONNECTING when the connection fails.
-        if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::DISCONNECTED);
-        throw;
-    }
-    if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::CONNECTED);
+    // Run the transport JNI work under the app class loader (Android); inline on iOS.
+    runOnJvmThread([&]() {
+        ensureInit();
+        if (transport_->isConnected()) {
+            return;  // returns from this lambda only — no further JNI needed
+        }
+        // Auto-connect: block this worker thread until the native transport connects
+        // (or throw on failure). keepAlive leaves the socket open for reuse.
+        if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::CONNECTING);
+        const double port = config_.port.value_or(10000);
+        const double timeout = config_.connectionTimeoutMs.value_or(5000);
+        try {
+            transport_->connect(config_.host, port, timeout)->await().get();
+        } catch (...) {
+            // Don't leave listeners stuck on CONNECTING when the connection fails.
+            if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::DISCONNECTED);
+            throw;
+        }
+        if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::CONNECTED);
+    });
 }
 
 std::string HybridEcr17Client::cashRegisterIdOr(const std::optional<std::string>& override) const {
@@ -296,7 +344,6 @@ std::string HybridEcr17Client::cashRegisterIdOr(const std::optional<std::string>
 DecodedPacket HybridEcr17Client::runTransaction(
     const std::string& mainPayload, const std::optional<TokenizationRequest>& tokenization,
     bool safeToRetry) {
-    ECR17_JNI_THREAD_GUARD;  // attach this worker thread for the transport JNI calls
     std::lock_guard<std::mutex> txLock(txMutex_);  // serialize exchanges on the shared session
     auto doExchange = [&]() -> DecodedPacket {
         if (tokenization.has_value()) {
@@ -310,49 +357,55 @@ DecodedPacket HybridEcr17Client::runTransaction(
         return session_->exchange(mainPayload);
     };
 
-    try {
-        return doExchange();
-    } catch (const std::exception&) {
-        const auto originalError = std::current_exception();
-        const bool autoReconnect = config_.autoReconnect.value_or(false);
-        const bool dropped = !transport_ || !transport_->isConnected();
-        if (autoReconnect && dropped) {
-            try {
-                ensureConnected();  // restore the socket for subsequent commands
-            } catch (...) {
-                // Reconnect failed: surface the original exchange error, not the
-                // reconnect failure (the former is what the caller needs to see).
-                std::rethrow_exception(originalError);
+    // All exchange JNI (session_ -> adapter_ -> Kotlin transport, incl. the
+    // ArrayBuffer lookup in send()) must run under the app class loader on Android.
+    return runOnJvmThread([&]() -> DecodedPacket {
+        try {
+            return doExchange();
+        } catch (const std::exception&) {
+            const auto originalError = std::current_exception();
+            const bool autoReconnect = config_.autoReconnect.value_or(false);
+            const bool dropped = !transport_ || !transport_->isConnected();
+            if (autoReconnect && dropped) {
+                try {
+                    ensureConnected();  // restore the socket for subsequent commands
+                } catch (...) {
+                    // Reconnect failed: surface the original exchange error, not the
+                    // reconnect failure (the former is what the caller needs to see).
+                    std::rethrow_exception(originalError);
+                }
             }
+            if (shouldRetryAfterReconnect(autoReconnect, dropped, safeToRetry)) {
+                return doExchange();  // only read-only/idempotent ops may be replayed
+            }
+            throw;  // financial op: surface the error (recover via sendLastResult / 'G')
         }
-        if (shouldRetryAfterReconnect(autoReconnect, dropped, safeToRetry)) {
-            return doExchange();  // only read-only/idempotent ops may be replayed
-        }
-        throw;  // financial op: surface the error (recover via sendLastResult / 'G')
-    }
+    });
 }
 
 void HybridEcr17Client::runAckOnly(const std::string& payload, bool safeToRetry) {
-    ECR17_JNI_THREAD_GUARD;  // attach this worker thread for the transport JNI calls
     std::lock_guard<std::mutex> txLock(txMutex_);  // serialize exchanges on the shared session
-    try {
-        session_->sendAckOnly(payload);
-    } catch (const std::exception&) {
-        const auto originalError = std::current_exception();
-        const bool autoReconnect = config_.autoReconnect.value_or(false);
-        const bool dropped = !transport_ || !transport_->isConnected();
-        if (autoReconnect && dropped) {
-            try {
-                ensureConnected();
-            } catch (...) {
-                std::rethrow_exception(originalError);  // surface the original error
+    // Send under the app class loader on Android (ArrayBuffer lookup in send()).
+    runOnJvmThread([&]() {
+        try {
+            session_->sendAckOnly(payload);
+        } catch (const std::exception&) {
+            const auto originalError = std::current_exception();
+            const bool autoReconnect = config_.autoReconnect.value_or(false);
+            const bool dropped = !transport_ || !transport_->isConnected();
+            if (autoReconnect && dropped) {
+                try {
+                    ensureConnected();
+                } catch (...) {
+                    std::rethrow_exception(originalError);  // surface the original error
+                }
             }
+            if (!shouldRetryAfterReconnect(autoReconnect, dropped, safeToRetry)) {
+                throw;  // not retryable: surface the original error
+            }
+            session_->sendAckOnly(payload);  // read-only/idempotent op: safe to replay
         }
-        if (!shouldRetryAfterReconnect(autoReconnect, dropped, safeToRetry)) {
-            throw;  // not retryable: surface the original error
-        }
-        session_->sendAckOnly(payload);  // read-only/idempotent op: safe to replay
-    }
+    });
 }
 
 std::shared_ptr<Promise<void>> HybridEcr17Client::connect() {
