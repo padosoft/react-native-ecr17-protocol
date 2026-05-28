@@ -1,0 +1,57 @@
+name: Android build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Build example (debug) — compiles C++/Kotlin/Nitro
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies (drop tooling-only @padosoft/config)
+        run: |
+          jq 'del(.devDependencies["@padosoft/config"])' package.json > package.json.tmp
+          mv package.json.tmp package.json
+          rm -f bun.lock
+          bun install
+
+      - name: Nitrogen codegen
+        working-directory: package
+        run: bunx nitrogen
+
+      - name: Expo prebuild (android)
+        working-directory: example
+        run: bunx expo prebuild --platform android --no-install
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK & CMake
+        run: |
+          sdkmanager "ndk;27.1.12297006" "cmake;3.22.1"
+
+      - name: Gradle assembleDebug
+        working-directory: example/android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace

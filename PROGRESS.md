@@ -17,18 +17,15 @@ Target PR: to be opened against `main` once Phase 0 lands (or reuse a draft).
 - [x] Phase 1 — all command builders (Ecr17Protocol) + builder tests  ✅ DONE (CI 55/55)
 - [x] Phase 2 — response parsers (Ecr17Response) + parser tests  ✅ DONE (CI 66/66)
 - [x] Phase 3 — Ecr17Session orchestration + FakeTransport + session tests  ✅ DONE (CI 74/74)
-- [~] Phase 4 — HybridEcr17Client wiring (build->session->parse->map) + NativeTransportAdapter  ⏸ BLOCKED (see below)
-- [x] Phase 8a — ts-checks CI job (typecheck + nitrogen) added; checkout@v5  ⏸ RED until package public
+- [x] Phase 8a — ts-checks CI (typecheck + nitrogen), checkout@v5  ✅ GREEN
+- [~] Phase 8b — native Android build CI (baseline current code, then verifies Phase 4/5)  ⏳ IN PROGRESS
+- [~] Phase 4 — HybridEcr17Client wiring (build->session->parse->map) + NativeTransportAdapter  ⏳ NEXT (after Android baseline green)
 
-### ⛔ BLOCKER (waiting on user)
-CI `bun install` returns 403 on the private GitHub Packages dep `@padosoft/config@1.2.2`
-(root workspace devDep; bunfig.toml `padosoft` scope -> npm.pkg.github.com via $GESCAT_NPM_TOKEN).
-Making the repo `padosoft/ts-support` public did NOT help — the PACKAGE visibility is separate.
-USER ACTION: set the @padosoft/config PACKAGE to Public (orgs/padosoft/packages ->
-@padosoft/config -> Package settings -> Change visibility), OR add Actions secret
-GESCAT_NPM_TOKEN (PAT w/ read:packages). Then RERUN ts-checks; if green, resume Phase 4.
-Until then native phases (4/5/8 build) can't be CI-verified. cpp-tests stays green (74 tests).
-The ts-checks.yml workflow is already correct; no code change needed once package is public.
+### Blocker RESOLVED
+CI `bun install` 403 on private @padosoft/config is fixed by STRIPPING that
+tooling-only devDep before install in CI (jq del + rm bun.lock + bun install).
+No token / package-visibility change needed. Use the SAME trick in the Android
+build job. Org disallows making the package public anyway.
 
 ### CI note
 - `cpp-tests.yml` uses actions/checkout@v4 (Node20 deprecation warning) → bump to @v5 in Phase 8.
