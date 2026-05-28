@@ -24,10 +24,17 @@ add_executable(ecr17_cpp_tests
   test_lrc.cpp
   test_packet_codec.cpp
   test_protocol.cpp
+  test_protocol_commands.cpp
+  test_response.cpp
+  test_session.cpp
+  test_retry_policy.cpp
+  test_integration_terminal.cpp
   test_flows.cpp
   ${ECR17_CPP_DIR}/Lcr/Lcr.cpp
   ${ECR17_CPP_DIR}/PacketCodec/PacketCodec.cpp
   ${ECR17_CPP_DIR}/Ecr17Protocol/Ecr17Protocol.cpp
+  ${ECR17_CPP_DIR}/Ecr17Response/Ecr17Response.cpp
+  ${ECR17_CPP_DIR}/Session/Ecr17Session.cpp
 )
 
 target_include_directories(ecr17_cpp_tests PRIVATE
@@ -41,7 +48,8 @@ else()
   target_compile_options(ecr17_cpp_tests PRIVATE -Wall -Wextra)
 endif()
 
-target_link_libraries(ecr17_cpp_tests PRIVATE GTest::gtest_main)
+find_package(Threads REQUIRED)
+target_link_libraries(ecr17_cpp_tests PRIVATE GTest::gtest_main Threads::Threads)
 
 include(GoogleTest)
 gtest_discover_tests(ecr17_cpp_tests)

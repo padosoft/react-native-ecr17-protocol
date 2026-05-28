@@ -1,0 +1,45 @@
+name: TS & codegen
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ts-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    name: Typecheck + Nitrogen codegen
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        # @padosoft/config is a tooling-only root devDep (the base for the main
+        # tsconfig.json / biome.json) that lives on a private GitHub Packages
+        # registry. CI doesn't need it — we typecheck with the self-contained
+        # tsconfig.ci.json and don't run biome here — so drop it before install
+        # to avoid any private-registry auth. (jq is preinstalled on the runner.)
+        run: |
+          jq 'del(.devDependencies["@padosoft/config"])' package.json > package.json.tmp
+          mv package.json.tmp package.json
+          rm -f bun.lock
+          bun install
+
+      - name: Nitrogen codegen
+        working-directory: package
+        run: bunx nitrogen
+
+      - name: Typecheck (self-contained config)
+        working-directory: package
+        run: bunx tsc --noEmit -p tsconfig.ci.json

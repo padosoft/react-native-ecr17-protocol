@@ -148,3 +148,17 @@ TEST(PacketCodec, DecodeCoalescedFramesIsUnknown) {
     EXPECT_EQ(decoded.type, PacketType::UNKNOWN);
     EXPECT_FALSE(decoded.validLrc);
 }
+
+// Regression: SOH frame whose last byte is not EOT must not be accepted as a
+// valid PROGRESS packet. Only SOH + payload + EOT is well-formed per spec.
+TEST(PacketCodec, DecodeSohWithoutEotIsUnknown) {
+    PacketCodec codec(LrcMode::STD);
+    // SOH + 20-char message, but terminated with 0xFF instead of EOT.
+    std::vector<uint8_t> frame{kSoh};
+    const std::string msg = "ELABORAZIONE...     ";
+    frame.insert(frame.end(), msg.begin(), msg.end());
+    frame.push_back(0xFF);  // wrong terminator
+    DecodedPacket decoded = codec.decode(frame);
+    EXPECT_EQ(decoded.type, PacketType::UNKNOWN);
+    EXPECT_FALSE(decoded.validLrc);
+}
