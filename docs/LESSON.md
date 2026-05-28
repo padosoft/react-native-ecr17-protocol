@@ -43,6 +43,16 @@
   guarded by `#ifdef __ANDROID__` (no-op on iOS). We attach in `ensureConnected`,
   `runTransaction`, `runAckOnly` (the worker-thread paths that hit the transport).
   Only reproducible by RUNNING the app — not by the build.
+- **`ClassNotFoundException` for the Kotlin HybridObject when created from a
+  worker thread.** After attaching a Nitro worker thread with `ThreadScope`,
+  `createHybridObject` does a JNI `FindClass` that resolves against the *thread's*
+  class loader — an attached worker thread gets the SYSTEM class loader (the error
+  shows `DexPathList[... /system/lib64 ...]`), which can't see app classes. Fix:
+  perform `ensureInit()` (the `createHybridObject`) on the **JS thread** (in
+  `configure()`), which has the app class loader; fbjni caches the resolved
+  `jclass` globally, so later method calls from worker threads work (they only need
+  a `JNIEnv`, supplied by the `ThreadScope` guards). Only reproducible by RUNNING
+  the app. (Alternative: `ThreadScope::WithClassLoader`.)
 - **Emit `DISCONNECTED` on a failed connect**, else listeners stay stuck on
   `CONNECTING`. `connect()` delegates to `ensureConnected()` which emits
   CONNECTING→(CONNECTED | DISCONNECTED on throw).
