@@ -8,6 +8,8 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
+#include <utility>
 
 #include "Ecr17Protocol/Ecr17Protocol.hpp"
 #include "Ecr17Response/Ecr17Response.hpp"
@@ -20,37 +22,56 @@
 // up lazily by the generated transport bridge in `send()` via JArrayBuffer::wrap).
 // That yields "Unable to retrieve jni environment" (no JNIEnv) or
 // "ClassNotFoundException ... DexPathList[... /system/lib64 ...]" (wrong loader).
-//
-// ECR17_RUN_ON_JVM_THREAD(body) runs `body` on Android under fbjni's
-// ThreadScope::WithClassLoader, which attaches the thread AND installs fbjni's
-// cached app class loader for the duration, so every FindClass inside (including
-// NitroModules' ArrayBuffer lookup) resolves app classes. On iOS (no JVM) it just
-// runs the body inline. WithClassLoader takes a `std::function<void()>`; this
-// macro captures any thrown C++ exception via std::exception_ptr and rethrows it
-// after the scope so callers' try/catch logic is preserved, and lets the body
-// assign to outer locals for return values.
 #ifdef __ANDROID__
 #include <fbjni/fbjni.h>
-#define ECR17_RUN_ON_JVM_THREAD(body)                                        \
-    do {                                                                     \
-        std::exception_ptr __ecr17Err;                                       \
-        ::facebook::jni::ThreadScope::WithClassLoader([&]() {                \
-            try {                                                            \
-                body                                                         \
-            } catch (...) {                                                  \
-                __ecr17Err = std::current_exception();                      \
-            }                                                                \
-        });                                                                  \
-        if (__ecr17Err) std::rethrow_exception(__ecr17Err);                  \
-    } while (0)
-#else
-#define ECR17_RUN_ON_JVM_THREAD(body) \
-    do {                              \
-        body                          \
-    } while (0)
 #endif
 
 namespace margelo::nitro::ecr17 {
+
+namespace {
+
+// Runs `fn` on Android under fbjni's ThreadScope::WithClassLoader, which attaches
+// the current thread to the JVM AND installs fbjni's cached app class loader for
+// the duration — so every JNI FindClass inside (including NitroModules' lazy
+// ArrayBuffer lookup) resolves app classes, not the system loader. On iOS (no JVM)
+// `fn` is just called directly. Returns whatever `fn` returns (incl. void) and
+// propagates exceptions, so the caller's try/catch and return-value logic is
+// unchanged. WithClassLoader takes a `std::function<void()>`, so on Android the
+// result is captured in a local and any exception via std::exception_ptr, then
+// rethrown after the scope. `fn` is a lambda, so a `return` inside it returns from
+// the lambda (not the caller) on BOTH platforms — safe in value-returning callers.
+template <typename Fn>
+auto runOnJvmThread(Fn&& fn) -> decltype(fn()) {
+#ifdef __ANDROID__
+    using Ret = decltype(fn());
+    std::exception_ptr err;
+    if constexpr (std::is_void_v<Ret>) {
+        ::facebook::jni::ThreadScope::WithClassLoader([&]() {
+            try {
+                fn();
+            } catch (...) {
+                err = std::current_exception();
+            }
+        });
+        if (err) std::rethrow_exception(err);
+    } else {
+        std::optional<Ret> result;
+        ::facebook::jni::ThreadScope::WithClassLoader([&]() {
+            try {
+                result.emplace(fn());
+            } catch (...) {
+                err = std::current_exception();
+            }
+        });
+        if (err) std::rethrow_exception(err);
+        return std::move(*result);
+    }
+#else
+    return fn();
+#endif
+}
+
+}  // namespace
 
 using margelo::nitro::HybridObjectRegistry;
 using margelo::nitro::Promise;
@@ -295,10 +316,10 @@ void HybridEcr17Client::ensureInit() {
 
 void HybridEcr17Client::ensureConnected() {
     // Run the transport JNI work under the app class loader (Android); inline on iOS.
-    ECR17_RUN_ON_JVM_THREAD({
+    runOnJvmThread([&]() {
         ensureInit();
         if (transport_->isConnected()) {
-            return;  // exits the WithClassLoader lambda only — no further JNI needed
+            return;  // returns from this lambda only — no further JNI needed
         }
         // Auto-connect: block this worker thread until the native transport connects
         // (or throw on failure). keepAlive leaves the socket open for reuse.
@@ -338,11 +359,9 @@ DecodedPacket HybridEcr17Client::runTransaction(
 
     // All exchange JNI (session_ -> adapter_ -> Kotlin transport, incl. the
     // ArrayBuffer lookup in send()) must run under the app class loader on Android.
-    DecodedPacket result;
-    ECR17_RUN_ON_JVM_THREAD({
+    return runOnJvmThread([&]() -> DecodedPacket {
         try {
-            result = doExchange();
-            return;
+            return doExchange();
         } catch (const std::exception&) {
             const auto originalError = std::current_exception();
             const bool autoReconnect = config_.autoReconnect.value_or(false);
@@ -357,19 +376,17 @@ DecodedPacket HybridEcr17Client::runTransaction(
                 }
             }
             if (shouldRetryAfterReconnect(autoReconnect, dropped, safeToRetry)) {
-                result = doExchange();  // only read-only/idempotent ops may be replayed
-                return;
+                return doExchange();  // only read-only/idempotent ops may be replayed
             }
             throw;  // financial op: surface the error (recover via sendLastResult / 'G')
         }
     });
-    return result;
 }
 
 void HybridEcr17Client::runAckOnly(const std::string& payload, bool safeToRetry) {
     std::lock_guard<std::mutex> txLock(txMutex_);  // serialize exchanges on the shared session
     // Send under the app class loader on Android (ArrayBuffer lookup in send()).
-    ECR17_RUN_ON_JVM_THREAD({
+    runOnJvmThread([&]() {
         try {
             session_->sendAckOnly(payload);
         } catch (const std::exception&) {
