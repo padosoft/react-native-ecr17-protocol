@@ -57,13 +57,6 @@ build job. Org disallows making the package public anyway.
 
 ### CI note
 - `cpp-tests.yml` uses actions/checkout@v4 (Node20 deprecation warning) → bump to @v5 in Phase 8.
-- [ ] Phase 3 — Ecr17Session orchestration + FakeTransport
-- [ ] Phase 4 — HybridEcr17Client async + events
-- [ ] Phase 5 — native transport (Swift/Kotlin + JNI; ref corasan/image-compressor#11)
-- [ ] Phase 6 — C++ tests expanded
-- [ ] Phase 7 — README (Roadmap/Feature status ✅) + example
-- [ ] Phase 8 — CI: typecheck + nitrogen check + Android/iOS build jobs
-- [ ] Phase 9 — distill LESSON.md into AGENTS.md / rules / skills
 
 ## Native impl spec (turnkey — all APIs confirmed from generated headers)
 Transport C++ spec (generated): `connect(string host,double port,double timeoutMs)->Promise<void>`,

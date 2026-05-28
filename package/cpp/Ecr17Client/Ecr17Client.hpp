@@ -3,6 +3,7 @@
 #include <NitroModules/Promise.hpp>
 
 #include <memory>
+#include <mutex>
 
 #include "HybridEcr17ClientSpec.hpp"
 #include "HybridEcr17TransportSpec.hpp"
@@ -65,6 +66,12 @@ class HybridEcr17Client : public HybridEcr17ClientSpec {
     void runAckOnly(const std::string& payload, bool safeToRetry);
 
     Ecr17Config config_;
+
+    // Serializes protocol exchanges: every public command runs on a Promise
+    // worker thread but they share one session_/transport_ and RX buffer, so
+    // concurrent commands must not interleave on the wire (or ACK each other's
+    // frames). Held for the duration of a single transaction's exchange.
+    std::mutex txMutex_;
 
     std::shared_ptr<HybridEcr17TransportSpec> transport_;
     std::shared_ptr<NativeTransportAdapter> adapter_;

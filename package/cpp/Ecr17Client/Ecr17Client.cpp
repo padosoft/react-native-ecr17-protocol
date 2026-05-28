@@ -4,6 +4,7 @@
 
 #include <chrono>
 #include <ctime>
+#include <exception>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -205,6 +206,11 @@ VasResult mapVas(const VasResponse& v) {
 
 void HybridEcr17Client::configure(const Ecr17Config& config) {
     config_ = config;
+    // Close any open socket before tearing down the old transport, otherwise the
+    // prior native connection leaks until the HybridObject is collected.
+    if (transport_) {
+        transport_->disconnect();
+    }
     // Force re-init so a new configuration rebuilds the session/timeouts.
     session_.reset();
     adapter_.reset();
@@ -259,6 +265,7 @@ std::string HybridEcr17Client::cashRegisterIdOr(const std::optional<std::string>
 DecodedPacket HybridEcr17Client::runTransaction(
     const std::string& mainPayload, const std::optional<TokenizationRequest>& tokenization,
     bool safeToRetry) {
+    std::lock_guard<std::mutex> txLock(txMutex_);  // serialize exchanges on the shared session
     auto doExchange = [&]() -> DecodedPacket {
         if (tokenization.has_value()) {
             const bool recurring = tokenization->service == TokenizationService::RECURRING;
@@ -274,10 +281,17 @@ DecodedPacket HybridEcr17Client::runTransaction(
     try {
         return doExchange();
     } catch (const std::exception&) {
+        const auto originalError = std::current_exception();
         const bool autoReconnect = config_.autoReconnect.value_or(false);
         const bool dropped = !transport_ || !transport_->isConnected();
         if (autoReconnect && dropped) {
-            ensureConnected();  // restore the socket for subsequent commands
+            try {
+                ensureConnected();  // restore the socket for subsequent commands
+            } catch (...) {
+                // Reconnect failed: surface the original exchange error, not the
+                // reconnect failure (the former is what the caller needs to see).
+                std::rethrow_exception(originalError);
+            }
         }
         if (shouldRetryAfterReconnect(autoReconnect, dropped, safeToRetry)) {
             return doExchange();  // only read-only/idempotent ops may be replayed
@@ -287,21 +301,24 @@ DecodedPacket HybridEcr17Client::runTransaction(
 }
 
 void HybridEcr17Client::runAckOnly(const std::string& payload, bool safeToRetry) {
+    std::lock_guard<std::mutex> txLock(txMutex_);  // serialize exchanges on the shared session
     try {
         session_->sendAckOnly(payload);
     } catch (const std::exception&) {
+        const auto originalError = std::current_exception();
         const bool autoReconnect = config_.autoReconnect.value_or(false);
         const bool dropped = !transport_ || !transport_->isConnected();
         if (autoReconnect && dropped) {
-            ensureConnected();
+            try {
+                ensureConnected();
+            } catch (...) {
+                std::rethrow_exception(originalError);  // surface the original error
+            }
         }
-        if (shouldRetryAfterReconnect(autoReconnect, dropped, safeToRetry)) {
-            session_->sendAckOnly(payload);
+        if (!shouldRetryAfterReconnect(autoReconnect, dropped, safeToRetry)) {
+            throw;  // not retryable: surface the original error
         }
-        // else: surface the original error (already rethrown below for non-retry)
-        else {
-            throw;
-        }
+        session_->sendAckOnly(payload);  // read-only/idempotent op: safe to replay
     }
 }
 

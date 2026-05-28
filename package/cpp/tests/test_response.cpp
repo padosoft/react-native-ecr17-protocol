@@ -117,6 +117,19 @@ TEST(Response, PreAuthPositive) {
     EXPECT_EQ(r.hostDateTime, "2111520");
 }
 
+// Regression: on an approved pre-auth the amount field occupies positions 41-48,
+// so its last digit sits exactly where cardType would be read. An amount ending
+// in 1/2/3 must NOT be surfaced as debit/credit/other. cardType is only
+// meaningful for the KO layout.
+TEST(Response, PreAuthPositiveDoesNotLeakAmountDigitAsCardType) {
+    std::string p = a("12345678", 8) + "0" + "e" + "00" + n("4111111111", 19) + a("CLI", 3) +
+                    a("AUTH01", 6) + n("50001", 8) + n("123", 9) + "000" + "2111520";
+    PreAuthResponse r = Ecr17Response::parsePreAuth(p);
+    EXPECT_EQ(r.outcome, Outcome::Ok);
+    EXPECT_EQ(r.preAuthorizedAmount, "00050001");  // ends in '1'
+    EXPECT_EQ(r.cardType, "");                      // must stay empty, not "1"
+}
+
 TEST(Response, Vas) {
     std::string xml =
         "<ecrres><p k=\"RESPID\">0</p><p k=\"RESPMSG\">OK-APPROVED</p>"

@@ -91,8 +91,12 @@ class HybridEcr17Transport : HybridEcr17TransportSpec() {
   }
 
   override fun isConnected(): Boolean {
+    // `Socket.isConnected` stays true after the peer closes the connection, so it
+    // alone can't detect an unexpected drop. The reader thread clears `running`
+    // when the stream ends (or on an intentional close), making it the source of
+    // truth for an active, usable connection.
     val s = socket
-    return s != null && s.isConnected && !s.isClosed
+    return running && s != null && s.isConnected && !s.isClosed
   }
 
   override fun send(bytes: ArrayBuffer) {

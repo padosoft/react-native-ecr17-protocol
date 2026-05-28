@@ -84,6 +84,12 @@ class Ecr17Session {
     std::vector<uint8_t> rxBuffer_;
     bool disconnected_ = false;
 
+    // Holds an application response that arrived during the ACK handshake (some
+    // terminals send the result before/without a physical ACK). Consumed by
+    // waitForResult() so the completed transaction's result is never dropped.
+    // Touched only by the worker thread, never the data-callback thread.
+    std::optional<DecodedPacket> pendingResult_{};
+
     std::function<void(const std::string&)> onProgress_{};
     std::function<void(const std::string&)> onReceiptLine_{};
 };

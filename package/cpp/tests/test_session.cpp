@@ -141,6 +141,28 @@ TEST(Session, ReceiptLinesForwardedBeforeResult) {
     EXPECT_EQ(receipts[0], kReceiptPayload);
 }
 
+// Regression: some terminals send the application RESULT before (or instead of)
+// the physical ACK. The handshake must not discard that frame — losing the
+// result of a completed financial transaction is the worst failure mode.
+TEST(Session, ResultBeforeAckIsNotLost) {
+    FakeTransport t;
+    PacketCodec codec(LrcMode::STD);
+    t.enqueueResponse(codec.encodeApplication(kResultPayload));  // result, no leading ACK
+
+    Ecr17Session session(t, fastConfig());
+    DecodedPacket result = session.exchange("123456780P...");
+    EXPECT_EQ(result.type, PacketType::APPLICATION);
+    EXPECT_EQ(result.payload, kResultPayload);
+    EXPECT_EQ(t.applicationRequestCount(), 1u);  // no spurious retransmit
+
+    // The accepted result must still be ACKed back to the terminal.
+    bool sentAck = false;
+    for (const auto& f : t.sentFrames()) {
+        if (!f.empty() && f.front() == PacketCodec::ACK) sentAck = true;
+    }
+    EXPECT_TRUE(sentAck);
+}
+
 TEST(Session, ResponseTimeoutAfterAckThrows) {
     FakeTransport t;
     PacketCodec codec(LrcMode::STD);

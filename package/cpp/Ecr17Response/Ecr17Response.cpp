@@ -129,9 +129,12 @@ PreAuthResponse Ecr17Response::parsePreAuth(const std::string& p) {
         r.actionCode = at(p, 58, 3);
         r.hostDateTime = at(p, 61, 7);
     }
-    // Common fields (per spec offsets; note pos 48 overlaps the positive amount
-    // field in the spec table, so cardType is only meaningful for KO responses).
-    r.cardType = at(p, 48, 1);
+    // In the OK layout preAuthorizedAmount occupies positions 41-48, so position
+    // 48 is the amount's last digit, NOT a card type. Only read cardType for the
+    // KO layout, where that byte is not part of an amount field.
+    if (r.outcome == Outcome::Ko) {
+        r.cardType = at(p, 48, 1);
+    }
     r.acquirerId = trimRight(at(p, 72, 11));
     r.stan = at(p, 83, 6);
     r.onlineId = at(p, 89, 6);

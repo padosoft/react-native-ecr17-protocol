@@ -106,6 +106,7 @@ void Ecr17Session::resetForNewTransaction() {
     std::lock_guard<std::mutex> lock(mutex_);
     disconnected_ = false;
     rxBuffer_.clear();
+    pendingResult_.reset();
 }
 
 void Ecr17Session::sendAckOnly(const std::string& requestPayload) {
@@ -151,6 +152,15 @@ void Ecr17Session::ackHandshake(const std::string& requestPayload) {
             transport_.send(requestFrame);
             ++attempts;
             deadline = clock::now() + std::chrono::milliseconds(config_.ackTimeoutMs);
+            continue;
+        }
+        if (pkt->type == PacketType::APPLICATION) {
+            // The terminal sent the application response without (or before) a
+            // physical ACK. The request was clearly received, so treat the
+            // handshake as satisfied and stash the frame for waitForResult() to
+            // validate/ACK — dropping it would lose a completed transaction.
+            pendingResult_ = pkt;
+            return;
         }
         // Ignore any progress frames that may precede the ACK.
     }
@@ -173,14 +183,22 @@ DecodedPacket Ecr17Session::exchangeWithAdditionalData(const std::string& reques
 DecodedPacket Ecr17Session::waitForResult() {
     auto deadline = clock::now() + std::chrono::milliseconds(config_.responseTimeoutMs);
     while (true) {
-        const auto remaining =
-            std::chrono::duration_cast<std::chrono::milliseconds>(deadline - clock::now()).count();
-        if (remaining <= 0) {
-            throw std::runtime_error("ECR17: no application response before timeout");
-        }
-        std::optional<DecodedPacket> pkt = waitForFrame(static_cast<int>(remaining));
-        if (!pkt) {
-            continue;
+        std::optional<DecodedPacket> pkt;
+        if (pendingResult_) {
+            // A frame the ACK handshake received early — process it first.
+            pkt = std::move(pendingResult_);
+            pendingResult_.reset();
+        } else {
+            const auto remaining =
+                std::chrono::duration_cast<std::chrono::milliseconds>(deadline - clock::now())
+                    .count();
+            if (remaining <= 0) {
+                throw std::runtime_error("ECR17: no application response before timeout");
+            }
+            pkt = waitForFrame(static_cast<int>(remaining));
+            if (!pkt) {
+                continue;
+            }
         }
         switch (pkt->type) {
             case PacketType::PROGRESS:
