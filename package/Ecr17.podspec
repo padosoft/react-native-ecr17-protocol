@@ -22,6 +22,10 @@ Pod::Spec.new do |s|
     "cpp/**/*.{hpp,cpp}",
   ]
 
+  s.exclude_files = [
+    "cpp/tests/**/*"
+  ]
+
   load 'nitrogen/generated/ios/Ecr17+autolinking.rb'
   add_nitrogen_files(s)
 
