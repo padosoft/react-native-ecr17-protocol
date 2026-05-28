@@ -9,7 +9,6 @@ import { CommandPalette } from '@/components/ecr17/CommandPalette';
 import { CommandParamsSheet } from '@/components/ecr17/CommandParamsSheet';
 import { ConfigForm } from '@/components/ecr17/ConfigForm';
 import { ConnectionBar } from '@/components/ecr17/ConnectionBar';
-import { LogConsole } from '@/components/ecr17/LogConsole';
 import type { CommandDef } from '@/ecr17/commands';
 import { DEFAULT_CONFIG, loadConfig, saveConfig } from '@/ecr17/storage';
 import { colors, font, radius, space } from '@/ecr17/theme';
@@ -87,11 +86,10 @@ export default function DebugConsoleScreen() {
         onConnect={() => void connect()}
         onDisconnect={disconnect}
       />
-      <ScrollView style={styles.top} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
         <ConfigForm value={config} onChange={onChangeConfig} />
         <CommandPalette onPick={onPick} disabled={busy} />
       </ScrollView>
-      <LogConsole />
 
       <CommandParamsSheet
         command={sheetCmd}
@@ -124,7 +122,7 @@ const styles = StyleSheet.create({
     paddingBottom: space.xs,
   },
   loading: { color: colors.textDim, textAlign: 'center', marginTop: space.xl },
-  top: { maxHeight: '45%' },
+  body: { flex: 1 },
   toast: {
     position: 'absolute',
     bottom: space.xl,
