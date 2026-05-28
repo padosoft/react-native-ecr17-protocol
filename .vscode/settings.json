@@ -118,7 +118,8 @@
 		"xstring": "cpp",
 		"xtr1common": "cpp",
 		"xtree": "cpp",
-		"xutility": "cpp"
+		"xutility": "cpp",
+		"resumable": "cpp"
 	},
 	"[cpp]": {
 		"editor.defaultFormatter": "ms-vscode.cpptools"
