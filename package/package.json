@@ -34,7 +34,6 @@
 		"ios/**/*.mm",
 		"ios/**/*.cpp",
 		"ios/**/*.swift",
-		"app.plugin.js",
 		"*.podspec",
 		"README.md"
 	],

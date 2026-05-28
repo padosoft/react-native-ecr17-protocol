@@ -9,11 +9,18 @@
 - Host is **Windows**; the `Bash` tool runs **bash**, the `PowerShell` tool runs pwsh.
   ⚠️ Do **not** use PowerShell here-strings (`@'...'@`) inside the Bash tool —
   the `@` leaks into the arg. Use a bash heredoc (`<<'EOF' … EOF`) or `git commit -F -`.
-- **No local C++/native toolchain** (`g++`/`clang++`/`cl` absent). Local + CI
-  verification of protocol logic goes through the **standalone GoogleTest target**
-  (`package/cpp/tests`, GoogleTest via CMake FetchContent, Ubuntu CI). Native
-  Swift/Kotlin + Nitro-integrated C++ are **not** locally compilable.
-- `copilot` CLI present (v1.0.54) for the local review loop.
+- **Local C++ toolchain available**: WinLibs **g++ 16** (MinGW/UCRT) at
+  `%LOCALAPPDATA%\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.POSIX.UCRT_*\mingw64\bin\g++.exe`
+  (installed via `winget install BrechtSanders.WinLibs.POSIX.UCRT`). Compile the
+  unit-testable core into a throwaway harness for a real local RED→GREEN check:
+  `g++ -std=c++20 -I package/cpp -I package/cpp/tests/stubs <harness>.cpp <core>.cpp`.
+  ⚠️ The preinstalled MSVC (VS18) is broken — its STL `include/` dir is missing, so
+  `cl` can't compile; use g++. ⚠️ Avira quarantines a freshly-built `.exe`
+  (false positive) → add a one-time AV exclusion for the build dir. No cmake/gtest
+  locally, so the full GoogleTest suite still runs in **CI** (`package/cpp/tests`,
+  Ubuntu). Native Swift/Kotlin + Nitro-integrated C++ are **not** locally
+  compilable → verified only by the Android build CI job.
+- `copilot` CLI present for the local review loop.
 - `nitrogen` runs via `./node_modules/.bin/nitrogen` (needs only Node/Bun).
   `nitrogen/generated/**` is **gitignored** (regenerated, not committed).
 
@@ -28,6 +35,18 @@
   Methods registered in `loadHybridMethods()` via `registerHybridMethod`.
 
 ## Build wiring
+- **Android `.so` loading + autolinking**: a Nitro module still needs an
+  autolinked `ReactPackage` so its native lib loads at runtime. `Ecr17Package`
+  (`com.ecr17`, a `BaseReactPackage` returning no modules) loads `libEcr17.so`
+  from its `companion init` (`Ecr17OnLoad.initializeNative()` → `System.loadLibrary`),
+  which runs `JNI_OnLoad → registerAllNatives()` and registers the HybridObjects
+  BEFORE JS creates them. RN CLI autolinking discovers it by globbing
+  `*Package.{kt,java}` under `android/src/main/java`, inferring the FQN and
+  emitting `new Ecr17Package()`. This requires **`package/react-native.config.js`**
+  (declares the android/ios platforms) — it was missing despite being listed in
+  `package.json` `files`, which can leave the package unlinked and the `.so`
+  unloaded at runtime. The reference Nitro module (corasan/image-compressor) ships
+  the same file; runtime load is verified only by running the example app.
 - Android `package/android/CMakeLists.txt` lists C++ sources **explicitly** — every
   new `package/cpp/**/*.cpp` MUST be added there or it won't link (undefined symbols).
 - iOS `package/Ecr17.podspec` globs `cpp/**/*.{hpp,cpp}` — new C++ auto-included.
