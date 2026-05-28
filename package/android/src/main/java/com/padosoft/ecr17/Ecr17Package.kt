@@ -1,4 +1,4 @@
-package com.ecr17
+package com.padosoft.ecr17
 
 import com.facebook.react.BaseReactPackage
 import com.facebook.react.bridge.NativeModule

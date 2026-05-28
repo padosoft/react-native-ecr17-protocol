@@ -36,7 +36,7 @@ def getExtOrIntegerDefault(name) {
 }
 
 android {
-  namespace "com.ecr17"
+  namespace "com.padosoft.ecr17"
 
   ndkVersion getExtOrDefault("ndkVersion")
   compileSdkVersion getExtOrIntegerDefault("compileSdkVersion")
@@ -144,6 +144,6 @@ if (isNewArchitectureEnabled()) {
   react {
     jsRootDir = file("../src/")
     libraryName = "Ecr17"
-    codegenJavaPackageName = "com.ecr17"
+    codegenJavaPackageName = "com.padosoft.ecr17"
   }
 }
