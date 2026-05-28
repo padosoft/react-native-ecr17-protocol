@@ -181,3 +181,37 @@ TEST(Session, SendAckOnlyTimesOut) {
     Ecr17Session session(t, fastConfig());
     EXPECT_THROW(session.sendAckOnly("123456780E1"), std::runtime_error);
 }
+
+TEST(Session, ExchangeWithAdditionalDataSendsTwoRequests) {
+    FakeTransport t;
+    PacketCodec codec(LrcMode::STD);
+    t.enqueueResponse(codec.encodeControl(PacketCodec::ACK));  // ACK for the main 'P'
+    std::vector<uint8_t> ok = codec.encodeControl(PacketCodec::ACK);
+    append(ok, codec.encodeApplication(kResultPayload));
+    t.enqueueResponse(ok);  // ACK for 'U' + the result
+
+    Ecr17Session session(t, fastConfig());
+    DecodedPacket result = session.exchangeWithAdditionalData("123456780P...", "123456780U...");
+    EXPECT_EQ(result.payload, kResultPayload);
+    EXPECT_EQ(t.applicationRequestCount(), 2u);  // P + U
+}
+
+TEST(Session, ReceiptDrainForwardsReceiptsAfterResult) {
+    FakeTransport t;
+    PacketCodec codec(LrcMode::STD);
+    std::vector<uint8_t> response = codec.encodeControl(PacketCodec::ACK);
+    append(response, codec.encodeApplication(kResultPayload));   // result first
+    append(response, codec.encodeApplication(kReceiptPayload));  // then a receipt line
+    t.enqueueResponse(response);
+
+    SessionConfig cfg = fastConfig();
+    cfg.receiptDrainMs = 30;  // drain receipts that follow the result
+    std::vector<std::string> receipts;
+    Ecr17Session session(t, cfg);
+    session.setOnReceiptLine([&](const std::string& l) { receipts.push_back(l); });
+
+    DecodedPacket result = session.exchange("123456780P...");
+    EXPECT_EQ(result.payload, kResultPayload);
+    ASSERT_EQ(receipts.size(), 1u);
+    EXPECT_EQ(receipts[0], kReceiptPayload);
+}

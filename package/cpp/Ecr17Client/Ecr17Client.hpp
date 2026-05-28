@@ -49,9 +49,14 @@ class HybridEcr17Client : public HybridEcr17ClientSpec {
     // Lazily creates the native transport (via the Nitro registry), the adapter
     // and the session, and wires session events to the JS callbacks.
     void ensureInit();
-    // Throws if not connected (commands require an open connection).
-    void requireConnected();
+    // Ensures an open connection, auto-connecting (and blocking the worker
+    // thread until ready) if needed. Throws if the connection fails.
+    void ensureConnected();
     std::string cashRegisterIdOr(const std::optional<std::string>& override) const;
+    // Runs a transaction, attaching the tokenization 'U' additional-data message
+    // when `tokenization` is set (request must be built with withAdditionalData=true).
+    DecodedPacket runTransaction(const std::string& mainPayload,
+                                 const std::optional<TokenizationRequest>& tokenization);
 
     Ecr17Config config_;
 

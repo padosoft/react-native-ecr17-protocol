@@ -35,6 +35,10 @@ export interface Ecr17Config {
 	responseTimeoutMs?: number;
 	ackTimeoutMs?: number;
 
+	// After a transaction result, keep forwarding 'S' receipt lines (onReceiptLine)
+	// until this many ms of silence. 0/undefined = off. Set when ECR-printing is on.
+	receiptDrainMs?: number;
+
 	retryCount?: number;
 	retryDelayMs?: number;
 

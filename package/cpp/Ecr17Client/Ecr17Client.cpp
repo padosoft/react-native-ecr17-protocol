@@ -226,6 +226,7 @@ void HybridEcr17Client::ensureInit() {
     sc.responseTimeoutMs = static_cast<int>(config_.responseTimeoutMs.value_or(60000));
     sc.retryCount = static_cast<int>(config_.retryCount.value_or(3));
     sc.retryDelayMs = static_cast<int>(config_.retryDelayMs.value_or(200));
+    sc.receiptDrainMs = static_cast<int>(config_.receiptDrainMs.value_or(0));
     session_ = std::make_unique<Ecr17Session>(*adapter_, sc);
 
     session_->setOnProgress([this](const std::string& message) {
@@ -236,14 +237,35 @@ void HybridEcr17Client::ensureInit() {
     });
 }
 
-void HybridEcr17Client::requireConnected() {
-    if (!transport_ || !transport_->isConnected()) {
-        throw std::runtime_error("ECR17: not connected — call connect() first");
+void HybridEcr17Client::ensureConnected() {
+    ensureInit();
+    if (transport_->isConnected()) {
+        return;
     }
+    // Auto-connect: block this worker thread until the native transport connects
+    // (or throw on failure). keepAlive leaves the socket open for reuse.
+    if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::CONNECTING);
+    const double port = config_.port.value_or(1024);
+    const double timeout = config_.connectionTimeoutMs.value_or(5000);
+    transport_->connect(config_.host, port, timeout)->await().get();
+    if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::CONNECTED);
 }
 
 std::string HybridEcr17Client::cashRegisterIdOr(const std::optional<std::string>& override) const {
     return override.value_or(config_.cashRegisterId);
+}
+
+DecodedPacket HybridEcr17Client::runTransaction(
+    const std::string& mainPayload, const std::optional<TokenizationRequest>& tokenization) {
+    if (tokenization.has_value()) {
+        const bool recurring = tokenization->service == TokenizationService::RECURRING;
+        const std::string tag =
+            Ecr17Protocol::formatTokenizationTag(recurring, tokenization->contractCode);
+        const std::string additional =
+            Ecr17Protocol::buildAdditionalTagsMessage(config_.terminalId, tag);
+        return session_->exchangeWithAdditionalData(mainPayload, additional);
+    }
+    return session_->exchange(mainPayload);
 }
 
 std::shared_ptr<Promise<void>> HybridEcr17Client::connect() {
@@ -265,7 +287,7 @@ bool HybridEcr17Client::isConnected() { return transport_ && transport_->isConne
 
 std::shared_ptr<Promise<PosStatusResponse>> HybridEcr17Client::status() {
     return Promise<PosStatusResponse>::async([this]() -> PosStatusResponse {
-        requireConnected();
+        ensureConnected();
         auto pkt = session_->exchange(Ecr17Protocol::buildStatusMessage(config_.terminalId));
         return mapStatus(Ecr17Response::parseStatus(pkt.payload));
     });
@@ -273,31 +295,33 @@ std::shared_ptr<Promise<PosStatusResponse>> HybridEcr17Client::status() {
 
 std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::pay(const PaymentRequest& request) {
     return Promise<PaymentResult>::async([this, request]() -> PaymentResult {
-        requireConnected();
+        ensureConnected();
+        const bool tok = request.tokenization.has_value();
         auto payload = Ecr17Protocol::buildPaymentMessage(
             config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
             static_cast<int>(request.amountCents), mapPaymentType(request.paymentType),
-            request.cardAlreadyPresent.value_or(false), false, request.receiptText.value_or(""));
-        auto pkt = session_->exchange(payload);
+            request.cardAlreadyPresent.value_or(false), tok, request.receiptText.value_or(""));
+        auto pkt = runTransaction(payload, request.tokenization);
         return mapPayment(Ecr17Response::parsePayment(pkt.payload));
     });
 }
 
 std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::payExtended(const PaymentRequest& request) {
     return Promise<PaymentResult>::async([this, request]() -> PaymentResult {
-        requireConnected();
+        ensureConnected();
+        const bool tok = request.tokenization.has_value();
         auto payload = Ecr17Protocol::buildExtendedPaymentMessage(
             config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
             static_cast<int>(request.amountCents), mapPaymentType(request.paymentType),
-            request.cardAlreadyPresent.value_or(false), false, request.receiptText.value_or(""));
-        auto pkt = session_->exchange(payload);
+            request.cardAlreadyPresent.value_or(false), tok, request.receiptText.value_or(""));
+        auto pkt = runTransaction(payload, request.tokenization);
         return mapPayment(Ecr17Response::parsePayment(pkt.payload));
     });
 }
 
 std::shared_ptr<Promise<ReversalResult>> HybridEcr17Client::reverse(const ReversalRequest& request) {
     return Promise<ReversalResult>::async([this, request]() -> ReversalResult {
-        requireConnected();
+        ensureConnected();
         auto payload = Ecr17Protocol::buildReversalMessage(
             config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
             request.stan.value_or("000000"));
@@ -308,12 +332,13 @@ std::shared_ptr<Promise<ReversalResult>> HybridEcr17Client::reverse(const Revers
 
 std::shared_ptr<Promise<PreAuthResult>> HybridEcr17Client::preAuth(const PreAuthRequest& request) {
     return Promise<PreAuthResult>::async([this, request]() -> PreAuthResult {
-        requireConnected();
+        ensureConnected();
+        const bool tok = request.tokenization.has_value();
         auto payload = Ecr17Protocol::buildPreAuthMessage(
             config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
             static_cast<int>(request.amountCents), mapPaymentType(request.paymentType),
-            request.cardAlreadyPresent.value_or(false), false, request.receiptText.value_or(""));
-        auto pkt = session_->exchange(payload);
+            request.cardAlreadyPresent.value_or(false), tok, request.receiptText.value_or(""));
+        auto pkt = runTransaction(payload, request.tokenization);
         return mapPreAuth(Ecr17Response::parsePreAuth(pkt.payload));
     });
 }
@@ -321,7 +346,7 @@ std::shared_ptr<Promise<PreAuthResult>> HybridEcr17Client::preAuth(const PreAuth
 std::shared_ptr<Promise<PreAuthResult>> HybridEcr17Client::incrementalAuth(
     const IncrementalAuthRequest& request) {
     return Promise<PreAuthResult>::async([this, request]() -> PreAuthResult {
-        requireConnected();
+        ensureConnected();
         auto payload = Ecr17Protocol::buildIncrementalMessage(
             config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
             static_cast<int>(request.amountCents), request.originalPreAuthCode, false,
@@ -334,7 +359,7 @@ std::shared_ptr<Promise<PreAuthResult>> HybridEcr17Client::incrementalAuth(
 std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::preAuthClosure(
     const PreAuthClosureRequest& request) {
     return Promise<PaymentResult>::async([this, request]() -> PaymentResult {
-        requireConnected();
+        ensureConnected();
         auto payload = Ecr17Protocol::buildPreAuthClosureMessage(
             config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
             static_cast<int>(request.amountCents), request.originalPreAuthCode, false,
@@ -347,18 +372,19 @@ std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::preAuthClosure(
 std::shared_ptr<Promise<CardVerificationResult>> HybridEcr17Client::verifyCard(
     const CardVerificationRequest& request) {
     return Promise<CardVerificationResult>::async([this, request]() -> CardVerificationResult {
-        requireConnected();
+        ensureConnected();
+        const bool tok = request.tokenization.has_value();
         auto payload = Ecr17Protocol::buildCardVerificationMessage(
             config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
-            mapPaymentType(request.paymentType), false);
-        auto pkt = session_->exchange(payload);
+            mapPaymentType(request.paymentType), tok);
+        auto pkt = runTransaction(payload, request.tokenization);
         return mapCardVerify(Ecr17Response::parsePayment(pkt.payload));
     });
 }
 
 std::shared_ptr<Promise<CloseSessionResult>> HybridEcr17Client::closeSession() {
     return Promise<CloseSessionResult>::async([this]() -> CloseSessionResult {
-        requireConnected();
+        ensureConnected();
         auto payload = Ecr17Protocol::buildCloseSessionMessage(config_.terminalId, config_.cashRegisterId);
         auto pkt = session_->exchange(payload);
         return mapClose(Ecr17Response::parseClose(pkt.payload));
@@ -367,7 +393,7 @@ std::shared_ptr<Promise<CloseSessionResult>> HybridEcr17Client::closeSession() {
 
 std::shared_ptr<Promise<TotalsResult>> HybridEcr17Client::totals() {
     return Promise<TotalsResult>::async([this]() -> TotalsResult {
-        requireConnected();
+        ensureConnected();
         auto payload = Ecr17Protocol::buildTotalsMessage(config_.terminalId, config_.cashRegisterId);
         auto pkt = session_->exchange(payload);
         return mapTotals(Ecr17Response::parseTotals(pkt.payload));
@@ -376,7 +402,7 @@ std::shared_ptr<Promise<TotalsResult>> HybridEcr17Client::totals() {
 
 std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::sendLastResult() {
     return Promise<PaymentResult>::async([this]() -> PaymentResult {
-        requireConnected();
+        ensureConnected();
         auto payload = Ecr17Protocol::buildSendLastResultMessage(config_.terminalId, config_.cashRegisterId);
         auto pkt = session_->exchange(payload);
         return mapPayment(Ecr17Response::parsePayment(pkt.payload));
@@ -385,21 +411,21 @@ std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::sendLastResult() {
 
 std::shared_ptr<Promise<void>> HybridEcr17Client::enableEcrPrinting(bool enabled) {
     return Promise<void>::async([this, enabled]() {
-        requireConnected();
+        ensureConnected();
         session_->sendAckOnly(Ecr17Protocol::buildEnableEcrPrintMessage(config_.terminalId, enabled));
     });
 }
 
 std::shared_ptr<Promise<void>> HybridEcr17Client::reprint(bool toEcr) {
     return Promise<void>::async([this, toEcr]() {
-        requireConnected();
+        ensureConnected();
         session_->sendAckOnly(Ecr17Protocol::buildReprintMessage(config_.terminalId, toEcr));
     });
 }
 
 std::shared_ptr<Promise<VasResult>> HybridEcr17Client::vas(const std::string& xmlRequest) {
     return Promise<VasResult>::async([this, xmlRequest]() -> VasResult {
-        requireConnected();
+        ensureConnected();
         auto payload = Ecr17Protocol::buildVasMessage(config_.terminalId, config_.cashRegisterId, xmlRequest);
         auto pkt = session_->exchange(payload);
         return mapVas(Ecr17Response::parseVas(pkt.payload));

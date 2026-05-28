@@ -146,65 +146,33 @@ void Ecr17Session::sendAckOnly(const std::string& requestPayload) {
 }
 
 DecodedPacket Ecr17Session::exchange(const std::string& requestPayload) {
-    const std::vector<uint8_t> requestFrame = codec_.encodeApplication(requestPayload);
+    sendAckOnly(requestPayload);  // send + physical ACK handshake (with retransmission)
+    return waitForResult();
+}
 
-    transport_.send(requestFrame);
-    int attempts = 1;  // initial transmission counts as attempt 1
-    bool awaitingAck = true;
-    auto deadline = clock::now() + std::chrono::milliseconds(config_.ackTimeoutMs);
+DecodedPacket Ecr17Session::exchangeWithAdditionalData(const std::string& requestPayload,
+                                                       const std::string& additionalPayload) {
+    sendAckOnly(requestPayload);     // main request -> ACK
+    sendAckOnly(additionalPayload);  // 'U' additional-data message -> ACK
+    return waitForResult();
+}
 
-    auto remainingMs = [&]() {
-        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - clock::now()).count();
-        return static_cast<int>(ms);
-    };
-
-    auto retransmitOrThrow = [&](const char* what) {
-        if (attempts > config_.retryCount) {
-            throw std::runtime_error(std::string("ECR17: ") + what + " after " +
-                                     std::to_string(attempts) + " attempts");
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(config_.retryDelayMs));
-        transport_.send(requestFrame);
-        ++attempts;
-        awaitingAck = true;
-        deadline = clock::now() + std::chrono::milliseconds(config_.ackTimeoutMs);
-    };
-
+DecodedPacket Ecr17Session::waitForResult() {
+    auto deadline = clock::now() + std::chrono::milliseconds(config_.responseTimeoutMs);
     while (true) {
-        const int remaining = remainingMs();
+        const auto remaining =
+            std::chrono::duration_cast<std::chrono::milliseconds>(deadline - clock::now()).count();
         if (remaining <= 0) {
-            if (awaitingAck) {
-                retransmitOrThrow("no ACK");
-                continue;
-            }
             throw std::runtime_error("ECR17: no application response before timeout");
         }
-
-        std::optional<DecodedPacket> pkt = waitForFrame(remaining);
+        std::optional<DecodedPacket> pkt = waitForFrame(static_cast<int>(remaining));
         if (!pkt) {
-            continue;  // re-evaluate deadline (handles spurious timeouts)
+            continue;
         }
-
         switch (pkt->type) {
-            case PacketType::ACK:
-                if (awaitingAck) {
-                    awaitingAck = false;
-                    deadline = clock::now() + std::chrono::milliseconds(config_.responseTimeoutMs);
-                }
-                break;
-
-            case PacketType::NAK:
-                if (awaitingAck) {
-                    retransmitOrThrow("NAK");
-                }
-                break;
-
             case PacketType::PROGRESS:
-                if (onProgress_) {
-                    onProgress_(pkt->payload);
-                }
+                if (onProgress_) onProgress_(pkt->payload);
                 break;
-
             case PacketType::APPLICATION:
                 if (!pkt->validLrc) {
                     sendControl(PacketCodec::NAK);
@@ -212,15 +180,45 @@ DecodedPacket Ecr17Session::exchange(const std::string& requestPayload) {
                 }
                 sendControl(PacketCodec::ACK);
                 if (isReceipt(pkt->payload)) {
-                    if (onReceiptLine_) {
-                        onReceiptLine_(pkt->payload);
-                    }
+                    if (onReceiptLine_) onReceiptLine_(pkt->payload);
                     break;
                 }
-                return *pkt;  // the application result
-
+                drainReceipts();  // forward receipts that follow the result (if enabled)
+                return *pkt;
+            case PacketType::ACK:
+            case PacketType::NAK:
+                break;  // stray confirmation; ignore
             case PacketType::UNKNOWN:
                 sendControl(PacketCodec::NAK);
+                break;
+        }
+    }
+}
+
+void Ecr17Session::drainReceipts() {
+    if (config_.receiptDrainMs <= 0) {
+        return;
+    }
+    // Keep forwarding 'S' receipt lines that arrive after the result until the
+    // terminal goes quiet for receiptDrainMs.
+    while (true) {
+        std::optional<DecodedPacket> pkt = waitForFrame(config_.receiptDrainMs);
+        if (!pkt) {
+            return;  // idle: no more receipts
+        }
+        switch (pkt->type) {
+            case PacketType::APPLICATION:
+                if (pkt->validLrc) {
+                    sendControl(PacketCodec::ACK);
+                    if (isReceipt(pkt->payload) && onReceiptLine_) {
+                        onReceiptLine_(pkt->payload);
+                    }
+                }
+                break;
+            case PacketType::PROGRESS:
+                if (onProgress_) onProgress_(pkt->payload);
+                break;
+            default:
                 break;
         }
     }

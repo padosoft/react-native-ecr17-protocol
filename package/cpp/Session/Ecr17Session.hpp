@@ -20,6 +20,8 @@ struct SessionConfig {
     int responseTimeoutMs = 60000; // wait for the application response
     int retryCount = 3;            // retransmissions on NAK/timeout (spec: up to 3)
     int retryDelayMs = 200;        // delay between retransmissions
+    int receiptDrainMs = 0;        // after the result, keep forwarding 'S' receipt
+                                   // lines until this many ms of silence (0 = off)
 };
 
 // Drives one ECR17 request/response exchange over a Transport: frames the
@@ -43,6 +45,12 @@ class Ecr17Session {
     // retransmission exhaustion, ACK/response timeout, or transport disconnect.
     DecodedPacket exchange(const std::string& requestPayload);
 
+    // Like exchange(), but sends an extra additional-data message (command 'U',
+    // tokenization) after the main request is ACKed, before the result: the
+    // documented flow is request(flag=1) -> ACK -> 'U' -> ACK -> result.
+    DecodedPacket exchangeWithAdditionalData(const std::string& requestPayload,
+                                             const std::string& additionalPayload);
+
     // For commands whose only reply is the physical ACK (e.g. enable/disable ECR
     // printing 'E'). Performs the ACK handshake with retransmission and returns
     // once ACK is received; does NOT wait for an application response. Throws on
@@ -52,6 +60,10 @@ class Ecr17Session {
    private:
     void onData(const std::vector<uint8_t>& data);
     void onDisconnect();
+    // Waits for the application result after the ACK handshake, forwarding
+    // progress (SOH) and receipt ('S') frames, NAKing invalid-LRC frames.
+    DecodedPacket waitForResult();
+    void drainReceipts();
     std::optional<std::vector<uint8_t>> extractFrameLocked();
     std::optional<DecodedPacket> waitForFrame(int timeoutMs);
     void sendControl(uint8_t control);

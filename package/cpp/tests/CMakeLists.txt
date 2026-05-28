@@ -27,6 +27,7 @@ add_executable(ecr17_cpp_tests
   test_protocol_commands.cpp
   test_response.cpp
   test_session.cpp
+  test_integration_terminal.cpp
   test_flows.cpp
   ${ECR17_CPP_DIR}/Lcr/Lcr.cpp
   ${ECR17_CPP_DIR}/PacketCodec/PacketCodec.cpp
