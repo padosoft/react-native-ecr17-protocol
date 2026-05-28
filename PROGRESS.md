@@ -18,8 +18,19 @@ Target PR: to be opened against `main` once Phase 0 lands (or reuse a draft).
 - [x] Phase 2 — response parsers (Ecr17Response) + parser tests  ✅ DONE (CI 66/66)
 - [x] Phase 3 — Ecr17Session orchestration + FakeTransport + session tests  ✅ DONE (CI 74/74)
 - [x] Phase 8a — ts-checks CI (typecheck + nitrogen), checkout@v5  ✅ GREEN
-- [~] Phase 8b — native Android build CI (baseline current code, then verifies Phase 4/5)  ⏳ IN PROGRESS
-- [~] Phase 4 — HybridEcr17Client wiring (build->session->parse->map) + NativeTransportAdapter  ⏳ NEXT (after Android baseline green)
+- [x] Phase 4 — HybridEcr17Client wiring + NativeTransportAdapter + sendAckOnly  ✅ written (cpp-tests 77/77; client/adapter verified only by Android build)
+- [x] Phase 5 — native Kotlin (HybridEcr17Transport.kt) + Swift (best-effort, no iOS CI)  ✅ written
+- [~] Phase 8b — native Android build CI (manual dispatch) — verifying Phase 4/5  ⏳ first run dispatched; expect to iterate on nitro include/registry/Kotlin errors
+- [ ] Phase 7 — README (Roadmap/Feature status ✅) + example hook  ⏳ IN PROGRESS (while Android builds)
+- [ ] Phase 6 — extra tests (mostly done inline per phase)
+- [ ] Phase 9 — distill LESSON into AGENTS.md/rules/skills
+
+### Native build iteration (Phase 8b)
+Trigger: `gh workflow run "Android build" --ref feat/ecr17-transport-and-commands`. ~15-20 min.
+Likely first-run errors to fix (unverifiable locally): nitro include paths
+(<NitroModules/ArrayBuffer.hpp>, <NitroModules/HybridObjectRegistry.hpp>),
+HybridObjectRegistry::createHybridObject usage, Kotlin ArrayBuffer/Promise API,
+Swift ArrayBuffer bridging (iOS has NO CI — best-effort). Batch fixes, re-dispatch.
 
 ### Blocker RESOLVED
 CI `bun install` 403 on private @padosoft/config is fixed by STRIPPING that

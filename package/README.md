@@ -2,7 +2,7 @@
 
 # 💳 react-native-ecr17
 
-**A React Native / Nitro module for the Italian ECR17 payment protocol — talk to Nexi Group POS terminals straight from your cash-register app.**
+**A React Native / Nitro module for the Italian ECR17 payment protocol — drive Nexi Group POS terminals over LAN, straight from your cash-register app.**
 
 [![npm version](https://img.shields.io/npm/v/react-native-ecr17.svg?style=flat-square)](https://www.npmjs.com/package/react-native-ecr17)
 [![npm downloads](https://img.shields.io/npm/dm/react-native-ecr17.svg?style=flat-square)](https://www.npmjs.com/package/react-native-ecr17)
@@ -15,267 +15,208 @@
 
 ---
 
-> [!IMPORTANT]
-> **Early foundation release.** The protocol core (packet framing, LRC, message
-> builders) is implemented and unit-tested, but the JavaScript surface is still
-> minimal: you can `configure()` a client and read the configuration back.
-> Sending payments end-to-end requires the transport layer, which is on the
-> [roadmap](#-roadmap). See [Feature status](#-feature-status) for the exact
-> state of every piece — nothing here is oversold.
-
 ## 📚 Table of contents
 
 - [What is ECR17?](#-what-is-ecr17)
-- [Why this library](#-why-this-library)
+- [Highlights](#-highlights)
 - [Feature status](#-feature-status)
 - [Requirements](#requirements)
 - [Installation](#-installation)
 - [Quick start](#-quick-start)
+- [React hook example](#-react-hook-example)
 - [Configuration](#%EF%B8%8F-configuration)
 - [API reference](#-api-reference)
+- [Events](#-events)
 - [Protocol cheat-sheet](#-protocol-cheat-sheet)
 - [Architecture](#%EF%B8%8F-architecture)
-- [Running the tests](#-running-the-tests)
+- [Testing](#-testing)
 - [Roadmap](#-roadmap)
-- [Contributing](#-contributing)
 - [License](#-license)
 
 ## 🧭 What is ECR17?
 
-**ECR17** is the Italian standard protocol — supported by **Nexi Group**
-terminals — used to integrate an *Electronic Cash Register* (ECR) with an
-*EFT-POS* payment terminal over a local LAN connection. The cash register sends
-a request (a payment, a reversal, a status check…), the terminal talks to the
-acquiring host, and replies synchronously.
+**ECR17** is the Italian standard protocol — supported by **Nexi Group** terminals —
+that integrates an *Electronic Cash Register* (ECR) with an *EFT-POS* payment
+terminal over a local LAN connection. The cash register sends a request
+(payment, reversal, status…), the terminal talks to the acquiring host, and
+replies synchronously.
 
-This library speaks that protocol from a React Native app, with the
-performance-sensitive parts written in C++ and bridged via
-[Nitro Modules](https://nitro.margelo.com).
-
-The protocol reference used to build this library is vendored in
+This library speaks that protocol from React Native, with the protocol engine
+written in C++ and bridged via [Nitro Modules](https://nitro.margelo.com). The
+full protocol reference is vendored in
 [`docs/`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/docs).
 
-## ✨ Why this library
+## ✨ Highlights
 
-- ⚡️ **C++ core, Nitro-bridged** — framing/LRC run natively on both iOS &
-  Android, no JS-thread overhead.
-- 🧱 **Spec-faithful** — message layouts validated byte-for-byte against the
-  Nexi ECR17 documentation.
-- 🛡️ **Fails loudly, not silently** — oversized fixed-width fields and negative
-  amounts throw instead of emitting a malformed frame to a payment terminal.
-- ✅ **Tested** — 34 unit + flow tests (LRC, packet codec, builders, and
-  documented payment/reversal flows) run in CI on every PR.
-- 🔌 **Configurable LRC modes** — the standard leaves the LRC scope to the
-  integrator; all four variants are first-class.
+- ⚡️ **C++ protocol core, Nitro-bridged** — framing/LRC/orchestration run natively on iOS & Android.
+- 🔄 **Async, Promise-based API** — `await client.pay({ amountCents })`.
+- 🧱 **Full command set** — payment, extended payment, reversal, pre-auth (request/incremental/closure), card verification, close session, totals, last result, ECR printing, reprint, VAS.
+- 🛡️ **Robust by design** — fixed-width field validation, defensive response parsing, ACK/NAK handshake with **retransmit-up-to-3** and timeouts.
+- 📡 **Live events** — progress messages, streamed receipt lines, connection state.
+- ✅ **Heavily tested** — 77 C++ unit/flow tests (LRC, codec, every builder, every parser, full session orchestration) run in CI.
 
 ## 📊 Feature status
 
-| Area | Status | Notes |
-|------|:------:|-------|
-| Packet framing (`STX`/`ETX`/`SOH`/`EOT`, ACK/NAK) | ✅ | `PacketCodec` encode/decode |
-| LRC computation (4 modes, base `0x7F`) | ✅ | `Lrc` |
-| Payment request builder (`P`) | 🟡 | C++ (`Ecr17Protocol`), not yet exposed to JS |
-| Reversal / *annullamento* builder (`S`) | 🟡 | C++, not yet exposed to JS |
-| Terminal status builder (`s`) | 🟡 | C++, not yet exposed to JS |
-| `Ecr17Client.configure()` / `configuration()` | ✅ | usable from JS today |
-| `Ecr17Client.status()` | 🚧 | throws "not implemented" until transport lands |
-| Transport (TCP/LAN, ACK/NAK retry) | ❌ | [roadmap](#-roadmap) |
-| Response field parsing (`E`/`V`/`s`/…) | ❌ | [roadmap](#-roadmap) |
-
-Legend: ✅ done · 🟡 implemented natively, not yet on the JS API · 🚧 stub · ❌ not started.
+| Area | Status |
+|------|:------:|
+| Packet framing + LRC (4 modes) | ✅ |
+| All request builders (`P X p i c H U C T G E R K s S`) | ✅ |
+| Response parsing (`E/V/s/T/C/e/K`, incl. DCC) | ✅ |
+| Session orchestration (ACK/NAK, retransmit, timeout, progress/receipt) | ✅ |
+| Async client API + events | ✅ |
+| Android native transport (Kotlin TCP) | ✅ *(CI-built)* |
+| iOS native transport (Swift / Network.framework) | 🟡 *(best-effort; pending iOS-build verification)* |
+| Tokenization additional-data (`U`) flow wiring | 🟡 *(builder ready; flow wiring on the roadmap)* |
 
 ## Requirements
 
-- **React Native** 0.76.0+ (new architecture)
+- **React Native** 0.76+ (new architecture) — the example uses Expo SDK 56 / RN 0.85
 - **react-native-nitro-modules** (peer dependency)
-- **Node** 18+
 - A Nexi Group ECR17-compatible terminal configured for **LAN integration**
 
 ## 📦 Installation
 
 ```bash
-# with bun
 bun add react-native-ecr17 react-native-nitro-modules
-
-# or npm / yarn
-npm install react-native-ecr17 react-native-nitro-modules
-```
-
-Then install native deps:
-
-```bash
+# or: npm install react-native-ecr17 react-native-nitro-modules
 cd ios && pod install   # iOS
-# Android autolinks — just rebuild
 ```
 
-> This is a Nitro module: it requires the React Native **new architecture**
-> (`newArchEnabled=true`), which is the default on RN 0.76+.
+> Nitro module: requires the RN **new architecture** (default on 0.76+).
 
 ## 🚀 Quick start
-
-A junior-proof, copy-paste example of what works **today** — create a client,
-configure it, and read the configuration back:
 
 ```ts
 import { createEcr17Client } from 'react-native-ecr17';
 
-// 1. Create + configure a client pointed at your terminal on the LAN.
 const client = createEcr17Client({
-  host: '192.168.1.50',   // terminal IP
-  port: 1024,             // configured ECR port (Linux EFT-POS: > 1024)
-  terminalId: '12345678', // 8-digit terminal id (or '00000000')
+  host: '192.168.1.50',     // terminal IP on the LAN
+  port: 1024,               // configured ECR port
+  terminalId: '12345678',
   cashRegisterId: '00000001',
-  lrcMode: 'std',         // see "Protocol cheat-sheet"
+  lrcMode: 'std',
+  responseTimeoutMs: 60000,
 });
 
-// 2. Read back the effective configuration (handy for debugging).
-const cfg = client.configuration();
-console.log('Configured for terminal', cfg.terminalId, 'at', cfg.host);
+await client.connect();
+
+const result = await client.pay({ amountCents: 650 });
+if (result.outcome === 'ok') {
+  console.log('Approved', result.authCode, 'PAN', result.pan);
+} else {
+  console.warn('Declined:', result.errorDescription);
+}
+
+// Reversal ("annullamento") of the last transaction:
+await client.reverse({});
+
+const status = await client.status();   // PosStatusResponse
+await client.disconnect();
 ```
 
-> [!NOTE]
-> `client.status()` currently **throws** `"... not implemented yet ..."` on
-> purpose — querying the terminal needs the transport layer, which is on the
-> roadmap. This is intentional so you never get a fake/garbage response.
+## ⚛️ React hook example
 
-Here's the shape the payment API will take once the transport lands (🚧 **not
-functional yet** — shown so you can plan your integration):
+```tsx
+import { useEffect, useMemo, useState } from 'react';
+import { createEcr17Client, type Ecr17Config, type ProgressEvent } from 'react-native-ecr17';
 
-```ts
-// ⚠️ ROADMAP — does not work yet.
-// const result = await client.pay({ amountCents: 650 });
-// if (result.outcome === 'OK') { /* print receipt, etc. */ }
+export function useEcr17(config: Ecr17Config) {
+  const client = useMemo(() => createEcr17Client(config), [config]);
+  const [progress, setProgress] = useState<string>('');
+
+  useEffect(() => {
+    client.setOnProgress((e: ProgressEvent) => setProgress(e.message));
+    client.connect();
+    return () => client.disconnect();
+  }, [client]);
+
+  return {
+    progress,
+    pay: (amountCents: number) => client.pay({ amountCents }),
+    reverse: () => client.reverse({}),
+    status: () => client.status(),
+  };
+}
 ```
 
 ## ⚙️ Configuration
 
-`createEcr17Client(config)` / `client.configure(config)` accept an `Ecr17Config`:
-
-| Field | Type | Required | Description |
-|-------|------|:--------:|-------------|
-| `host` | `string` | ✅ | Terminal IP address on the LAN |
-| `port` | `number` | | TCP port (Linux EFT-POS requires > 1024) |
-| `terminalId` | `string` | ✅ | 8-digit terminal id (`00000000`–`99999999`) |
-| `cashRegisterId` | `string` | ✅ | Cash register / ECR identifier |
-| `lrcMode` | `LrcMode` | | LRC scope — see below (default per terminal) |
-| `keepAlive` | `boolean` | | Keep the socket open between requests |
-| `autoReconnect` | `boolean` | | Reconnect automatically on drop |
-| `connectionTimeoutMs` | `number` | | Connect timeout |
-| `responseTimeoutMs` | `number` | | Per-request response timeout |
-| `ackTimeoutMs` | `number` | | Physical ACK/NAK timeout |
-| `retryCount` | `number` | | Retransmission attempts (spec: up to 3) |
-| `retryDelayMs` | `number` | | Delay between retransmissions |
-| `debug` | `boolean` | | Verbose protocol logging |
+`Ecr17Config`: `host` (required), `port?`, `terminalId` (required), `cashRegisterId`
+(required), `lrcMode?`, `keepAlive?`, `autoReconnect?`, `connectionTimeoutMs?`,
+`responseTimeoutMs?`, `ackTimeoutMs?`, `retryCount?`, `retryDelayMs?`, `debug?`.
 
 ## 📖 API reference
 
-### `createEcr17Client(config: Ecr17Config): Ecr17Client`
+All commands are **async** (`Promise`) and perform a full request/response
+exchange. `configure`/`configuration` are synchronous.
 
-Creates a Nitro `Ecr17Client` HybridObject and configures it in one call.
+| Method | Command | Returns |
+|--------|:------:|---------|
+| `connect()` / `disconnect()` / `isConnected()` | — | `Promise<void>` / `void` / `bool` |
+| `status()` | `s` | `PosStatusResponse` |
+| `pay(req)` / `payExtended(req)` | `P` / `X` | `PaymentResult` |
+| `reverse(req)` | `S` | `ReversalResult` |
+| `preAuth(req)` / `incrementalAuth(req)` / `preAuthClosure(req)` | `p` / `i` / `c` | `PreAuthResult` / `PaymentResult` |
+| `verifyCard(req)` | `H` | `CardVerificationResult` |
+| `closeSession()` / `totals()` | `C` / `T` | `CloseSessionResult` / `TotalsResult` |
+| `sendLastResult()` | `G` | `PaymentResult` |
+| `enableEcrPrinting(bool)` / `reprint(bool)` | `E` / `R` | `Promise<void>` |
+| `vas(xml)` | `K` | `VasResult` |
 
-### `client.configure(config: Ecr17Config): void`
+Commands require an open connection (`connect()` first) and reject on
+timeout / retransmission exhaustion / disconnect.
 
-(Re)applies configuration to an existing client.
-
-### `client.configuration(): Ecr17Config`
-
-Returns the currently applied configuration.
-
-### `client.status(): PosStatusResponse` 🚧
-
-Will return the terminal status. **Currently throws** until transport +
-response parsing are implemented.
+## 📡 Events
 
 ```ts
-interface PosStatusResponse {
-  terminalId: string;
-  terminalDateTime: Date;
-  status: PosTerminalStatus;   // -1 (Unknown) … 6
-  softwareRelease: string;
-}
+client.setOnProgress((e) => {/* e.message — display text during a procedure */});
+client.setOnReceiptLine((l) => {/* l.text — a receipt line when ECR printing is on */});
+client.setOnConnectionStateChange((s) => {/* 'disconnected' | 'connecting' | 'connected' */});
 ```
-
-`PosTerminalStatus` maps to human-readable strings via `PosTerminalStatusMessage`
-(e.g. `2` → `"Terminal operative (after a DLL)"`, `-1` → `"Unknown"`).
 
 ## 🔐 Protocol cheat-sheet
 
-**Application packet:** `STX(0x02)` · payload · `ETX(0x03)` · `LRC`
-**Progress update:** `SOH(0x01)` · 20-char message · `EOT(0x04)` (no LRC)
-**Confirmation:** `ACK(0x06)` / `NAK(0x15)` · `ETX` · `LRC`
-
-**LRC** = `0x7F` XOR-folded over the message bytes. Which framing bytes are
-included is configurable via `lrcMode`:
-
-| `lrcMode` | Bytes folded into the LRC |
-|-----------|---------------------------|
-| `'stx'` | `STX` + payload + `ETX` |
-| `'std'` | payload only |
-| `'noext'` | payload + `ETX` |
-| `'stx_noext'` | `STX` + payload |
-
-**Command codes** (from the Nexi ECR17 spec):
-
-| Code | Command | Builder |
-|:----:|---------|:-------:|
-| `s` | Terminal status | ✅ (native) |
-| `P` | Payment | ✅ (native) |
-| `S` | Reversal (*annullamento*) | ✅ (native) |
-| `X` | Extended payment | ❌ |
-| `p` `i` `c` | Pre-auth / incremental / closure | ❌ |
-| `H` | Card verification | ❌ |
-| `U` | Additional GT data / tokenization | ❌ |
-| `C` `T` | Close session / totals | ❌ |
-| `G` `E` `R` | Last result / ECR print / reprint | ❌ |
-| `K` | VAS / APM (BancomatPay, Alipay, …) | ❌ |
+App frame: `STX(0x02)` · payload · `ETX(0x03)` · `LRC`. Progress: `SOH(0x01)` ·
+20 chars · `EOT(0x04)`. Confirmation: `ACK(0x06)` / `NAK(0x15)` · `ETX` · `LRC`.
+LRC = `0x7F` XOR-folded; framing bytes folded in are selectable via `lrcMode`
+(`stx` / `std` / `noext` / `stx_noext`).
 
 ## 🏗️ Architecture
 
 ```
 package/cpp/
-├── Lcr/            # Lrc — LRC computation (4 modes, base 0x7F)
-├── PacketCodec/    # framing: encode/decode STX·ETX·SOH·EOT·ACK·NAK + LRC check
-├── Ecr17Protocol/  # message builders (P / S / s) — fixed-width, validated
-├── Transport/      # abstract send/receive interface (impl on the roadmap)
-└── Ecr17Client/    # HybridEcr17Client — the Nitro-exposed entry point
+├── Lcr/            # LRC (4 modes, base 0x7F)
+├── PacketCodec/    # framing: STX·ETX·SOH·EOT·ACK·NAK + LRC
+├── Ecr17Protocol/  # request builders (all commands), fixed-width + validated
+├── Ecr17Response/  # response field parsers -> plain structs
+├── Session/        # ACK/NAK + retransmit + timeout orchestration
+├── Transport/      # abstract Transport + NativeTransportAdapter + FakeTransport (tests)
+└── Ecr17Client/    # HybridEcr17Client (Nitro async API)
+package/android/.../HybridEcr17Transport.kt   # Kotlin TCP transport
+package/ios/HybridEcr17Transport.swift        # Swift (Network.framework) transport
 ```
 
-The JS/TS spec lives in `package/src/specs/client.nitro.ts`; the C++/Swift/Kotlin
-glue is generated by Nitrogen into `package/nitrogen/generated/`.
-
-## 🧪 Running the tests
-
-The C++ core is covered by a standalone GoogleTest suite that builds without
-Nitro (it stubs the generated `LrcMode` enum):
+## 🧪 Testing
 
 ```bash
 cmake -S package/cpp/tests -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-ctest --test-dir build --output-on-failure
+cmake --build build && ctest --test-dir build --output-on-failure
 ```
 
-The same suite runs in CI on every pull request. It covers LRC (all modes),
-packet (de)framing and its edge cases, the message builders' exact byte layout
-and validation, and the documented **payment / reversal / re-payment** flows.
+77 tests cover LRC, packet (de)framing edge cases, every builder's byte layout,
+every response parser, and the documented payment / reversal / re-pay / progress
+/ receipt / NAK-retransmit / timeout flows (against an in-memory `FakeTransport`).
 
 ## 🛣️ Roadmap
 
-- [ ] `Transport` TCP/LAN implementation (iOS + Android)
-- [ ] Send/receive orchestration with ACK/NAK + retransmit-up-to-3 (per spec)
-- [ ] Response field parsing (`E`/`V` results, `s` status, `S` receipt stream, `U` GT data)
-- [ ] Expose `pay()`, `reverse()`, `status()` on the JS API
-- [ ] Remaining command builders (`X`, `p`, `i`, `c`, `H`, `U`, `C`, `T`, `G`, `E`, `R`, `K`)
-- [ ] Tokenization helpers
-
-## 🤝 Contributing
-
-Issues and PRs welcome. Please keep the C++ core spec-faithful and add tests for
-any new builder or codec path — CI must stay green.
+- [ ] iOS native transport verification (add a macOS CI build)
+- [ ] Tokenization (`U`) additional-data flow wiring into pay/preAuth/verify
+- [ ] Receipt streaming after the result message (multi-`S` concatenation)
+- [ ] Auto-connect / reconnect honoring `keepAlive` / `autoReconnect`
 
 ## 📄 License
 
 [MIT](https://github.com/padosoft/react-native-ecr17-protocol/blob/main/LICENSE) © [padosoft](https://github.com/padosoft)
 
-> **Disclaimer:** this is an independent integration library. "ECR17", "Nexi"
-> and related marks belong to their respective owners and are referenced for
-> interoperability only.
+> **Disclaimer:** independent integration library. "ECR17", "Nexi" and related
+> marks belong to their respective owners and are referenced for interoperability only.
