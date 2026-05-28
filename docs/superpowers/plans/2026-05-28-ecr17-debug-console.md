@@ -4,9 +4,9 @@
 
 **Goal:** Replace the Expo example home screen with an ECR17 Debug Console that configures/connects to a POS, runs every command, and streams behind-the-scenes logs (on screen + file) with progress/loading effects; verified by an android-build APK artifact.
 
-**Architecture:** Isolated units — `logger` (file+memory log store), `commands` (command metadata/param schema), `useEcr17` (client lifecycle hook), and focused UI components composed by the home route. NativeWind for styling, Reanimated for effects.
+**Architecture:** Isolated units — `logger` (file+memory log store), `commands` (command metadata/param schema), `useEcr17` (client lifecycle hook), and focused UI components composed by the home route. Plain `StyleSheet` for styling, Reanimated for effects.
 
-**Tech Stack:** Expo (RN 0.85), expo-router, NativeWind v5 + Tailwind, react-native-reanimated, expo-file-system, expo-sharing, react-native-ecr17 (workspace), Nitro.
+**Tech Stack:** Expo (RN 0.85), expo-router, React Native `StyleSheet`, react-native-reanimated, expo-file-system, expo-sharing, react-native-ecr17 (workspace), Nitro.
 
 ---
 

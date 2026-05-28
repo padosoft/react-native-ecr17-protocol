@@ -13,7 +13,7 @@ import { LogConsole } from '@/components/ecr17/LogConsole';
 import type { CommandDef } from '@/ecr17/commands';
 import { DEFAULT_CONFIG, loadConfig, saveConfig } from '@/ecr17/storage';
 import { colors, font, radius, space } from '@/ecr17/theme';
-import { useEcr17 } from '@/ecr17/useEcr17';
+import { useEcr17, type RunResult } from '@/ecr17/useEcr17';
 
 interface Toast {
   text: string;
@@ -38,16 +38,15 @@ export default function DebugConsoleScreen() {
     saveConfig(next);
   }, []);
 
-  const showToast = useCallback((result: unknown) => {
-    const outcome = (result as { outcome?: string } | undefined)?.outcome;
-    if (result === undefined) {
+  const showToast = useCallback((r: RunResult) => {
+    if (r.status === 'error') {
       setToast({ text: 'Error — see log', color: colors.error });
-    } else if (outcome === undefined || outcome === 'ok') {
-      // No outcome field (e.g. status/vas/void) or an explicit OK.
-      setToast({ text: 'OK', color: colors.ok });
+    } else if (r.status === 'ko') {
+      const res = r.result as { outcome?: string; responseId?: string } | undefined;
+      const label = res?.outcome ?? (res?.responseId != null ? `vas ${res.responseId}` : 'ko');
+      setToast({ text: `KO (${label})`, color: colors.ko });
     } else {
-      // ko / cardNotPresent / unknownTag / unknown.
-      setToast({ text: `KO (${outcome})`, color: colors.ko });
+      setToast({ text: 'OK', color: colors.ok });
     }
     setTimeout(() => setToast(null), 2500);
   }, []);

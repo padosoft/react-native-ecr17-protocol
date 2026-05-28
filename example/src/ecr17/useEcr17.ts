@@ -11,8 +11,15 @@ import {
   type PaymentCardType,
 } from 'react-native-ecr17';
 import { log } from './logger';
+import { isFailure, safeDetail } from './results';
 
 type Params = Record<string, unknown>;
+
+export type RunStatus = 'ok' | 'ko' | 'error';
+export interface RunResult {
+  status: RunStatus;
+  result?: unknown;
+}
 
 export interface UseEcr17 {
   connectionState: ConnectionState;
@@ -20,7 +27,7 @@ export interface UseEcr17 {
   lastProgress: string;
   connect: () => Promise<void>;
   disconnect: () => void;
-  run: (key: string, params: Params) => Promise<unknown>;
+  run: (key: string, params: Params) => Promise<RunResult>;
 }
 
 function dispatch(client: Ecr17Client, key: string, p: Params): Promise<unknown> {
@@ -157,7 +164,7 @@ export function useEcr17(config: Ecr17Config): UseEcr17 {
   }, []);
 
   const run = useCallback(
-    async (key: string, params: Params): Promise<unknown> => {
+    async (key: string, params: Params): Promise<RunResult> => {
       const c = ensureClient();
       applyConfig(c); // ensure the command uses the current form config
       setBusy(true);
@@ -165,16 +172,12 @@ export function useEcr17(config: Ecr17Config): UseEcr17 {
       log('sent', key, JSON.stringify(params));
       try {
         const result = await dispatch(c, key, params);
-        const outcome = (result as { outcome?: string } | undefined)?.outcome;
-        const detail = result === undefined ? 'ok' : JSON.stringify(result);
-        // Any defined outcome other than 'ok' (ko / cardNotPresent / unknownTag /
-        // unknown) is a non-success; void results (no outcome) are ok.
-        const failed = outcome !== undefined && outcome !== 'ok';
-        log(failed ? 'ko' : 'ok', `${key} →`, detail);
-        return result;
+        const failed = isFailure(result); // handles outcome + VAS responseId
+        log(failed ? 'ko' : 'ok', `${key} →`, safeDetail(result)); // PAN masked
+        return { status: failed ? 'ko' : 'ok', result };
       } catch (e) {
         log('error', `${key} failed`, String(e));
-        return undefined;
+        return { status: 'error' };
       } finally {
         setBusy(false);
       }
