@@ -80,6 +80,33 @@
 - **Emit `DISCONNECTED` on a failed connect**, else listeners stay stuck on
   `CONNECTING`. `connect()` delegates to `ensureConnected()` which emits
   CONNECTING→(CONNECTED | DISCONNECTED on throw).
+- **ECR17/Nexi terminals close the TCP socket BETWEEN transactions → detect the
+  drop PROACTIVELY (before sending), not reactively (after).** Observed on a real
+  device: financial commands (verifyCard/pay) INTERMITTENTLY failed with
+  "transport disconnected during exchange" while safe commands (status/totals)
+  succeeded — apparent "works once, fails next". Root cause: the terminal closes
+  the socket after a transaction (and the Kotlin reader thread may not have
+  observed the EOF `read()<0` yet — a race), so `isConnected()` returned `true`
+  for a half-open socket. The command was then SENT on a dead socket; the read
+  failed MID-exchange; `runTransaction`'s catch reconnected and applied the
+  money-safety RetryPolicy → safe/idempotent ops were replayed (→ ok) but
+  financial ops were (correctly) NOT replayed → a FALSE error surfaced. The
+  reactive reconnect left a fresh socket, so the user's NEXT manual attempt landed
+  on a good socket → the alternation. The money-safety behavior was correct; the
+  bug was discovering the drop AFTER the send instead of BEFORE. Fix: make Kotlin
+  `isConnected()` a synchronous NON-DESTRUCTIVE liveness probe —
+  `socket.sendUrgentData(0xFF)` writes one TCP out-of-band byte that THROWS on a
+  peer-closed/half-open socket but is harmless on a live one and does NOT touch the
+  normal data stream (cannot corrupt an STX/ETX frame, does not race the reader
+  thread which only reads the ordinary input stream). On a thrown probe we mark the
+  socket dead + fire onDisconnect, so the existing `ensureConnected()` (called at
+  the start of every command) reconnects BEFORE the send and the financial command
+  starts on a verified-live socket. Money-safety is UNCHANGED — RetryPolicy and
+  sendLastResult ('G') recovery are untouched; we only removed the FALSE drop from
+  a stale pre-send socket; a genuine mid-exchange drop still surfaces and is
+  recovered via 'G'. iOS (`NWConnection.state == .ready`) reflects peer-close too
+  but state updates are async (small residual race; no iOS CI → best-effort). Only
+  reproducible by RUNNING against a real terminal — no build/unit CI catches it.
 
 ## Build wiring
 - **Nitro C++ HybridObject impl header MUST be named after `implementationClassName`

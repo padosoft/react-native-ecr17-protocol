@@ -67,6 +67,13 @@ final class HybridEcr17Transport: HybridEcr17TransportSpec {
     }
 
     func isConnected() throws -> Bool {
+        // Used by the C++ client as a PRE-SEND liveness check so a command starts on
+        // a verified-live socket (the Android transport probes the socket here). With
+        // Network.framework the connection transitions to .failed/.cancelled when the
+        // peer closes, so `.ready` is the closest equivalent. NOTE: state updates are
+        // delivered asynchronously on `queue`, so a peer close observed between
+        // transactions may take a moment to flip the state — a small residual race
+        // not present on Android. Best-effort (no iOS CI); verify on a real build.
         return connection?.state == .ready
     }
 

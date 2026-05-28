@@ -93,10 +93,48 @@ class HybridEcr17Transport : HybridEcr17TransportSpec() {
   override fun isConnected(): Boolean {
     // `Socket.isConnected` stays true after the peer closes the connection, so it
     // alone can't detect an unexpected drop. The reader thread clears `running`
-    // when the stream ends (or on an intentional close), making it the source of
-    // truth for an active, usable connection.
+    // when the stream ends (or on an intentional close); but there is a RACE: an
+    // ECR17/Nexi terminal typically closes the TCP socket between transactions, and
+    // the reader thread may not have observed the EOF (`read() < 0`) yet when the
+    // NEXT command checks `isConnected()`. If we returned `true` there, the command
+    // would be SENT on a half-open (peer-closed) socket; the read would then fail
+    // MID-exchange — and the money-safety RetryPolicy (correctly) refuses to replay
+    // a financial command, so a FALSE "transport disconnected" error surfaces.
+    //
+    // Fix: detect a peer-closed/half-open socket PROACTIVELY here, BEFORE the send,
+    // with a non-destructive liveness probe. `sendUrgentData` writes a single TCP
+    // out-of-band byte; on a socket the peer has already closed (FIN/RST received)
+    // it throws IOException, while on a live socket it is harmless and does not
+    // touch the normal data stream (so it cannot corrupt an STX/ETX frame and does
+    // not race the reader thread, which only reads the ordinary input stream). When
+    // the probe trips, we treat the connection as dead so `ensureConnected()`
+    // reconnects BEFORE sending — turning the old reactive (post-send) drop
+    // detection into proactive (pre-send) recovery. Money-safety is unchanged: we
+    // only remove the FALSE drop caused by a stale pre-send socket; a genuine
+    // mid-exchange drop still surfaces and is recovered via sendLastResult ('G').
     val s = socket
-    return running && s != null && s.isConnected && !s.isClosed
+    if (!running || s == null || !s.isConnected || s.isClosed) {
+      return false
+    }
+    return try {
+      s.sendUrgentData(0xFF)
+      true
+    } catch (_: Throwable) {
+      // Peer has closed the socket (or it is otherwise unusable): mark it dead and
+      // notify listeners, mirroring the reader thread's EOF path, so the next
+      // ensureConnected() establishes a fresh socket before any command is sent.
+      markDropped()
+      false
+    }
+  }
+
+  /** Marks the connection as dropped and fires onDisconnect (unexpected drop). */
+  private fun markDropped() {
+    if (!running) return
+    running = false
+    if (!intentionalDisconnect) {
+      onDisconnectCallback?.invoke()
+    }
   }
 
   override fun send(bytes: ArrayBuffer) {
