@@ -13,9 +13,14 @@ Target PR: to be opened against `main` once Phase 0 lands (or reuse a draft).
 6. Phase done → continue to next phase in automode.
 
 ## Status
-- [~] Phase 0 — TS spec async + types + events + transport spec + nitrogen  → code done, typecheck green, in review/push loop
-- [ ] Phase 1 — all command builders (Ecr17Protocol)
-- [ ] Phase 2 — response parsers (Ecr17Response)
+- [x] Phase 0 — TS spec async + types + events + transport spec + nitrogen  ✅ DONE (PR #4 stacked on #3, CI green)
+- [x] Phase 1 — all command builders (Ecr17Protocol) + builder tests  ✅ DONE (CI 55/55)
+- [x] Phase 2 — response parsers (Ecr17Response) + parser tests  ✅ DONE (CI 66/66)
+- [x] Phase 3 — Ecr17Session orchestration + FakeTransport + session tests  ✅ DONE (CI 74/74)
+- [~] Phase 4 — HybridEcr17Client wiring (build->session->parse->map) + NativeTransportAdapter  ⏳ NEXT
+
+### CI note
+- `cpp-tests.yml` uses actions/checkout@v4 (Node20 deprecation warning) → bump to @v5 in Phase 8.
 - [ ] Phase 3 — Ecr17Session orchestration + FakeTransport
 - [ ] Phase 4 — HybridEcr17Client async + events
 - [ ] Phase 5 — native transport (Swift/Kotlin + JNI; ref corasan/image-compressor#11)
@@ -24,9 +29,24 @@ Target PR: to be opened against `main` once Phase 0 lands (or reuse a draft).
 - [ ] Phase 8 — CI: typecheck + nitrogen check + Android/iOS build jobs
 - [ ] Phase 9 — distill LESSON.md into AGENTS.md / rules / skills
 
-## Current task
-Phase 0: redesign `package/src/specs/client.nitro.ts` (async commands + events),
-add `transport.nitro.ts`, new result types, update `nitro.json`, run nitrogen.
+## Current task / resume notes
+Phase 4: wire HybridEcr17Client to real logic:
+- Hold a Transport (NativeTransportAdapter wrapping a generated
+  HybridEcr17TransportSpec obtained via HybridObjectRegistry::createHybridObject
+  ("Ecr17Transport")) + an Ecr17Session built from SessionConfig(config_).
+- configure(): store config + (re)build SessionConfig (lrcMode/timeouts/retry).
+- connect()/disconnect()/isConnected(): delegate to transport (host/port/
+  connectionTimeoutMs); fire onConnectionStateChange_.
+- Each command (Promise<T>::async): ensureConnected -> Ecr17Protocol::buildX(...)
+  -> session.exchange(payload) -> Ecr17Response::parseX(pkt.payload) -> map to the
+  generated Nitro result struct (field-copy; CHECK exact generated field names in
+  nitrogen/generated/shared/c++/<Type>.hpp). Map outcome enum->TS union string,
+  cardType '1'/'2'/'3'->debit/credit/other, entryMode ICC/MAG/...->union.
+- Wire session.setOnProgress/onReceiptLine -> onProgress_/onReceiptLine_ (ProgressEvent{message}/ReceiptLine{text}).
+NOTE: Phase 4/5 are NOT compilable by the C++ unit CI (nitro-coupled). Verified
+only by the Phase-8 Android/iOS build jobs. Keep mapping mechanical; the risky
+logic (build/parse/session) is already CI-tested. Match generated struct field
+names EXACTLY. Promise<T>::async([](){ return T; }) — see Ecr17Client.cpp stubs.
 
 ## Notes to resume
 - Cannot compile natively locally (no toolchain). C++ unit target (GoogleTest) is the local/CI gate; native verified only via CI build jobs (Phase 8).

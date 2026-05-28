@@ -73,6 +73,21 @@
 - **EOT check (kept from Copilot):** SOH/progress frames must end in `EOT (0x04)`;
   `decode()` now rejects SOH frames whose last byte != EOT.
 - The C++ unit-test target does NOT compile `Ecr17Client.cpp` (only Lcr,
-  PacketCodec, Ecr17Protocol + tests), so client-layer compile errors are NOT
-  caught by the GoogleTest CI — they need the Android/iOS build jobs (Phase 8).
-  Verify client/nitro C++ against the generated headers by hand until then.
+  PacketCodec, Ecr17Protocol, Ecr17Response, Session + tests), so client-layer
+  compile errors are NOT caught by the GoogleTest CI — they need the Android/iOS
+  build jobs (Phase 8). Verify client/nitro C++ against the generated headers by
+  hand until then.
+- **Local Copilot review prompt efficiency:** feeding a big patch file makes the
+  CLI read it in chunks and frequently TIME OUT (saw 124 at 540s twice). A
+  focused prompt — "read ONLY file X and Y, check these N specific things, answer
+  in <=K lines" — finishes in <1 min and is reliable. Prefer per-file/targeted
+  reviews over dumping the whole branch diff.
+- Test exe using std::thread/condition_variable needs `find_package(Threads)` +
+  link `Threads::Threads` on Linux CI (Android gets pthread via libc).
+- `LrcMode.hpp` is flat (nitrogen-generated / test stub at tests/stubs), NOT under
+  `Lcr/`. Include `"Lcr/Lcr.hpp"` (which includes "LrcMode.hpp") — never
+  `"Lcr/LrcMode.hpp"`.
+- Phase-3 session orchestration with real threads/condvar compiled & passed in CI
+  (74 tests) — FakeTransport delivers scripted replies synchronously on each STX
+  send, so happy-path tests don't actually block; only timeout tests wait (use
+  tiny timeouts, e.g. 40ms).
