@@ -34,6 +34,19 @@
 - Spec virtuals are pure (`= 0`) in `HybridXxxSpec`; the impl class overrides them.
   Methods registered in `loadHybridMethods()` via `registerHybridMethod`.
 
+## Runtime (Android)
+- **Calling a Kotlin HybridObject from a C++ `Promise::async` worker thread fails
+  with "Unable to retrieve jni environment. Is the thread attached?".** Nitro's
+  C++ thread-pool worker threads are NOT attached to the JVM, so the generated
+  C++→Kotlin JNI bridge can't get a `JNIEnv`. Fix: attach with fbjni
+  `facebook::jni::ThreadScope` (RAII) for the scope of the transport calls —
+  guarded by `#ifdef __ANDROID__` (no-op on iOS). We attach in `ensureConnected`,
+  `runTransaction`, `runAckOnly` (the worker-thread paths that hit the transport).
+  Only reproducible by RUNNING the app — not by the build.
+- **Emit `DISCONNECTED` on a failed connect**, else listeners stay stuck on
+  `CONNECTING`. `connect()` delegates to `ensureConnected()` which emits
+  CONNECTING→(CONNECTED | DISCONNECTED on throw).
+
 ## Build wiring
 - **Nitro C++ HybridObject impl header MUST be named after `implementationClassName`
   and be on the include path.** nitrogen's generated `Ecr17OnLoad.cpp` does a flat

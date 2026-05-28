@@ -140,6 +140,10 @@ export function useEcr17(config: Ecr17Config): UseEcr17 {
   }, []);
 
   const connect = useCallback(async () => {
+    if (!configRef.current.host.trim()) {
+      log('error', 'connect failed', 'Host is empty — enter the POS IP address first');
+      return;
+    }
     const c = ensureClient();
     setBusy(true);
     log('sent', 'connect()', JSON.stringify(configRef.current));
