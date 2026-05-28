@@ -1,0 +1,186 @@
+#include "Session/Ecr17Session.hpp"
+
+#include <algorithm>
+#include <chrono>
+#include <stdexcept>
+#include <thread>
+
+namespace margelo::nitro::ecr17 {
+
+using clock = std::chrono::steady_clock;
+
+Ecr17Session::Ecr17Session(Transport& transport, const SessionConfig& config)
+    : transport_(transport), config_(config), codec_(config.lrcMode) {
+    transport_.setDataCallback([this](const std::vector<uint8_t>& data) { onData(data); });
+    transport_.setDisconnectCallback([this]() { onDisconnect(); });
+}
+
+void Ecr17Session::onData(const std::vector<uint8_t>& data) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        rxBuffer_.insert(rxBuffer_.end(), data.begin(), data.end());
+    }
+    cv_.notify_all();
+}
+
+void Ecr17Session::onDisconnect() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        disconnected_ = true;
+    }
+    cv_.notify_all();
+}
+
+// Extracts one complete frame from the front of rxBuffer_, dropping leading junk
+// bytes to resynchronise. Returns nullopt if no complete frame is available yet.
+// Caller must hold mutex_.
+std::optional<std::vector<uint8_t>> Ecr17Session::extractFrameLocked() {
+    while (!rxBuffer_.empty()) {
+        const uint8_t first = rxBuffer_.front();
+
+        if (first == PacketCodec::ACK || first == PacketCodec::NAK) {
+            if (rxBuffer_.size() < 3) {
+                return std::nullopt;  // wait for ETX + LRC
+            }
+            std::vector<uint8_t> frame(rxBuffer_.begin(), rxBuffer_.begin() + 3);
+            rxBuffer_.erase(rxBuffer_.begin(), rxBuffer_.begin() + 3);
+            return frame;
+        }
+
+        if (first == PacketCodec::STX) {
+            auto etx = std::find(rxBuffer_.begin(), rxBuffer_.end(), PacketCodec::ETX);
+            if (etx == rxBuffer_.end() || etx + 1 == rxBuffer_.end()) {
+                return std::nullopt;  // wait for ETX and the trailing LRC
+            }
+            auto lastByte = etx + 1;  // LRC
+            std::vector<uint8_t> frame(rxBuffer_.begin(), lastByte + 1);
+            rxBuffer_.erase(rxBuffer_.begin(), lastByte + 1);
+            return frame;
+        }
+
+        if (first == PacketCodec::SOH) {
+            auto eot = std::find(rxBuffer_.begin(), rxBuffer_.end(), PacketCodec::EOT);
+            if (eot == rxBuffer_.end()) {
+                return std::nullopt;  // wait for EOT
+            }
+            std::vector<uint8_t> frame(rxBuffer_.begin(), eot + 1);
+            rxBuffer_.erase(rxBuffer_.begin(), eot + 1);
+            return frame;
+        }
+
+        // Unrecognised lead byte: drop it and resynchronise.
+        rxBuffer_.erase(rxBuffer_.begin());
+    }
+    return std::nullopt;
+}
+
+std::optional<DecodedPacket> Ecr17Session::waitForFrame(int timeoutMs) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    const auto deadline = clock::now() + std::chrono::milliseconds(timeoutMs);
+    while (true) {
+        if (auto frame = extractFrameLocked()) {
+            return codec_.decode(*frame);
+        }
+        if (disconnected_) {
+            throw std::runtime_error("ECR17: transport disconnected during exchange");
+        }
+        if (cv_.wait_until(lock, deadline) == std::cv_status::timeout) {
+            if (auto frame = extractFrameLocked()) {
+                return codec_.decode(*frame);
+            }
+            return std::nullopt;
+        }
+    }
+}
+
+void Ecr17Session::sendControl(uint8_t control) {
+    transport_.send(codec_.encodeControl(control));
+}
+
+bool Ecr17Session::isReceipt(const std::string& payload) {
+    // Send-ticket message from the terminal uses message code 'S' at position 10.
+    return payload.size() >= 10 && payload[9] == 'S';
+}
+
+DecodedPacket Ecr17Session::exchange(const std::string& requestPayload) {
+    const std::vector<uint8_t> requestFrame = codec_.encodeApplication(requestPayload);
+
+    transport_.send(requestFrame);
+    int attempts = 1;  // initial transmission counts as attempt 1
+    bool awaitingAck = true;
+    auto deadline = clock::now() + std::chrono::milliseconds(config_.ackTimeoutMs);
+
+    auto remainingMs = [&]() {
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - clock::now()).count();
+        return static_cast<int>(ms);
+    };
+
+    auto retransmitOrThrow = [&](const char* what) {
+        if (attempts > config_.retryCount) {
+            throw std::runtime_error(std::string("ECR17: ") + what + " after " +
+                                     std::to_string(attempts) + " attempts");
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(config_.retryDelayMs));
+        transport_.send(requestFrame);
+        ++attempts;
+        awaitingAck = true;
+        deadline = clock::now() + std::chrono::milliseconds(config_.ackTimeoutMs);
+    };
+
+    while (true) {
+        const int remaining = remainingMs();
+        if (remaining <= 0) {
+            if (awaitingAck) {
+                retransmitOrThrow("no ACK");
+                continue;
+            }
+            throw std::runtime_error("ECR17: no application response before timeout");
+        }
+
+        std::optional<DecodedPacket> pkt = waitForFrame(remaining);
+        if (!pkt) {
+            continue;  // re-evaluate deadline (handles spurious timeouts)
+        }
+
+        switch (pkt->type) {
+            case PacketType::ACK:
+                if (awaitingAck) {
+                    awaitingAck = false;
+                    deadline = clock::now() + std::chrono::milliseconds(config_.responseTimeoutMs);
+                }
+                break;
+
+            case PacketType::NAK:
+                if (awaitingAck) {
+                    retransmitOrThrow("NAK");
+                }
+                break;
+
+            case PacketType::PROGRESS:
+                if (onProgress_) {
+                    onProgress_(pkt->payload);
+                }
+                break;
+
+            case PacketType::APPLICATION:
+                if (!pkt->validLrc) {
+                    sendControl(PacketCodec::NAK);
+                    break;
+                }
+                sendControl(PacketCodec::ACK);
+                if (isReceipt(pkt->payload)) {
+                    if (onReceiptLine_) {
+                        onReceiptLine_(pkt->payload);
+                    }
+                    break;
+                }
+                return *pkt;  // the application result
+
+            case PacketType::UNKNOWN:
+                sendControl(PacketCodec::NAK);
+                break;
+        }
+    }
+}
+
+}  // namespace margelo::nitro::ecr17
