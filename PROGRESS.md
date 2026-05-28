@@ -34,9 +34,13 @@ Target PR: to be opened against `main` once Phase 0 lands (or reuse a draft).
 - [x] PR #4 retargeted to main (#3 merged)
 - cpp-tests 80/80 green; client/native verified by Android build.
 
+- [x] Auto-reconnect on mid-session drop — SAFE policy (financial never replayed;
+      RetryPolicy.hpp unit-tested; recover via sendLastResult 'G'). cpp 82/82.
+- [x] Money-safety reviewed by Copilot (no double-charge path) + README enterprise section.
+
 ### Genuinely remaining (need hardware/macOS — documented in README roadmap)
 - iOS Swift transport verification: NO macOS CI runner. Swift written best-effort.
-- Auto-reconnect on a mid-session drop (auto-connect done; reconnect-on-drop not).
+- (everything else is implemented + verified: Android build green, cpp 82/82, ts-checks green)
 
 ### Native build iteration (Phase 8b)
 Trigger: `gh workflow run "Android build" --ref feat/ecr17-transport-and-commands`. ~15-20 min.
