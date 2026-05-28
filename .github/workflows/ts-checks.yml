@@ -10,6 +10,10 @@ concurrency:
   group: ts-checks-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   typecheck:
     name: Typecheck + Nitrogen codegen
@@ -25,6 +29,10 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
+        # @padosoft/config is a private GitHub Packages dep; bunfig.toml maps the
+        # `padosoft` scope to npm.pkg.github.com using $GESCAT_NPM_TOKEN.
+        env:
+          GESCAT_NPM_TOKEN: ${{ secrets.GESCAT_NPM_TOKEN || secrets.GITHUB_TOKEN }}
         run: bun install
 
       - name: Nitrogen codegen

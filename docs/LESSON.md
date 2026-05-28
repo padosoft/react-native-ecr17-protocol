@@ -91,3 +91,12 @@
   (74 tests) — FakeTransport delivers scripted replies synchronously on each STX
   send, so happy-path tests don't actually block; only timeout tests wait (use
   tiny timeouts, e.g. 40ms).
+- **Private dep `@padosoft/config`** is a GitHub Packages package (root
+  package.json devDep `^1.2.2`); `bunfig.toml` maps the `padosoft` scope to
+  `https://npm.pkg.github.com/` via `$GESCAT_NPM_TOKEN`. ANY CI job running
+  `bun install` (typecheck, nitrogen, native build) needs it → set
+  `env: GESCAT_NPM_TOKEN: ${{ secrets.GESCAT_NPM_TOKEN || secrets.GITHUB_TOKEN }}`
+  + `permissions: packages: read`. The TS source never imports it (only
+  tsconfig/biome `extends` it).
+- The example app is **Expo managed** (RN 0.85, expo ~56, no committed `android/`):
+  a native CI build needs `expo prebuild` then gradle/xcode — heavy, best-effort.
