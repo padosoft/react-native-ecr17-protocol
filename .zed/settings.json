@@ -1,0 +1,24 @@
+{
+	"inline_code_actions": true,
+	"formatter": [
+		{
+			"code_action": "source.organizeImports.biome"
+		},
+		{
+			"code_action": "source.fixAll.biome"
+		},
+		"language_server"
+	],
+	"language_servers": ["biome", "..."],
+	"lsp": {
+		"biome": {
+			"settings": {
+				"require_config_file": true
+			}
+		}
+	},
+	"telemetry": {
+		"diagnostics": false,
+		"metrics": false
+	}
+}
