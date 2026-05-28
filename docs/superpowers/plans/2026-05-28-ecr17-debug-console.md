@@ -15,14 +15,15 @@
 ### Task 0.1: Add the package + libs to the example
 **Files:** Modify `example/package.json`
 
-- [ ] Add deps: `"react-native-ecr17": "workspace:*"`, `"react-native-nitro-modules": "*"`, `"nativewind"`, `"tailwindcss"`, `"expo-file-system"`, `"expo-sharing"`. Keep versions Expo-SDK-56 compatible (use `bunx expo install` for the expo-* ones).
+- [ ] Add deps: `"react-native-ecr17": "workspace:*"`, `"react-native-nitro-modules": "*"`, `"expo-file-system"`, `"expo-sharing"` (use `bunx expo install` for the expo-* ones to pin SDK-56-compatible versions).
 - [ ] Run `bun install` at repo root.
 - [ ] Verify: `bun install` succeeds; `react-native-ecr17` resolves to the workspace.
 
-### Task 0.2: NativeWind v5 + Tailwind setup
-Use the `expo-app-design:expo-tailwind-setup` skill. Produces/updates: `example/tailwind.config.js`, `example/metro.config.js`, `example/babel.config.js`, `example/global.css` (Tailwind directives), `example/nativewind-env.d.ts`.
-- [ ] Configure `content` globs to include `src/**/*.{ts,tsx}`.
-- [ ] Verify: `cd example && bunx tsc --noEmit` passes; a `className` on a View typechecks.
+### Task 0.2: Theme module (plain StyleSheet)
+**Files:** Create `example/src/theme.ts`
+- [ ] Dark "console" palette + spacing/typography + per-log-level colors. No new
+  styling deps (NativeWind dropped for build robustness).
+- [ ] Verify: `cd example && bunx tsc --noEmit` passes.
 
 ## Phase 1 — Core logic units (no UI)
 

@@ -29,8 +29,9 @@ installable APK artifact.
   the screen. No local Android SDK/emulator assumed.
 - **Placement**: the debug console **replaces the home** route
   (`example/src/app/index.tsx`).
-- **Styling**: NativeWind v5 + Tailwind (set up via the `expo-tailwind-setup`
-  skill). Dark "console" theme.
+- **Styling**: plain React Native `StyleSheet` with a small dark "console" theme
+  module. (NativeWind v5 was considered but is preview + nightly `react-native-css`
+  and cannot be build-verified locally; StyleSheet maximizes build robustness.)
 - **Logging**: on-screen live console **and** file logging via
   `expo-file-system`, with export/share via `expo-sharing`.
 - **Polish**: progress/loading effects using `react-native-reanimated` (already a
@@ -58,6 +59,10 @@ Each unit has one purpose, a clear interface, and is independently understandabl
   `disconnect()`, and `run(commandKey, params)` which returns the typed result,
   logs `sent`→(`progress`/`receipt`)→`ok`/`ko`/`error`, and never throws to the UI.
 - Depends on: the package public API, `logger`.
+
+### `example/src/theme.ts`
+- Small dark "console" palette + spacing/typography constants used by all UI
+  components (plain `StyleSheet`). One source of truth for colors per log level.
 
 ### `example/src/ecr17/commands.ts`
 - Static metadata describing every command: key, label, ECR17 letter, whether it

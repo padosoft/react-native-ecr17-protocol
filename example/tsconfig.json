@@ -8,6 +8,9 @@
       ],
       "@/assets/*": [
         "./assets/*"
+      ],
+      "react-native-ecr17": [
+        "../package/src/index"
       ]
     }
   },
