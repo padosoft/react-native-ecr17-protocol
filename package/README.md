@@ -53,7 +53,30 @@ full protocol reference is vendored in
 - 🧱 **Full command set** — payment, extended payment, reversal, pre-auth (request/incremental/closure), card verification, close session, totals, last result, ECR printing, reprint, VAS.
 - 🛡️ **Robust by design** — fixed-width field validation, defensive response parsing, ACK/NAK handshake with **retransmit-up-to-3** and timeouts.
 - 📡 **Live events** — progress messages, streamed receipt lines, connection state.
-- ✅ **Heavily tested** — 77 C++ unit/flow tests (LRC, codec, every builder, every parser, full session orchestration) run in CI.
+- ✅ **Heavily tested** — 82 C++ unit/flow/safety tests (LRC, codec, every builder, every parser, full session orchestration) run in CI.
+
+## 🛡️ Enterprise robustness & payment safety
+
+This module handles real money, so correctness and failure handling are
+first-class:
+
+- **Physical handshake** — every application frame is confirmed with ACK/NAK and
+  **retransmitted up to 3 times** (per spec) on NAK or timeout, with separate
+  ACK and response timeouts.
+- **Integrity** — LRC validated on every received frame; invalid frames are
+  NAKed to request retransmission. Outgoing fixed-width fields are validated, so
+  a malformed frame is never sent to the terminal.
+- **No double charge** — on a connection drop, `autoReconnect` restores the
+  socket but a **financial command is never blindly re-sent** (a re-send could
+  charge the cardholder twice). Read-only/idempotent commands (status, totals,
+  `sendLastResult`, enable-printing) are retried; payments/reversals/pre-auths
+  reconnect and surface the error so you recover the outcome via
+  `sendLastResult()` (the spec's `G` command). This invariant is unit-tested.
+- **Defensive parsing** — response parsers never read out of bounds on short or
+  malformed payloads.
+- **One transaction at a time** — matches the protocol's request/response model.
+- **Tested** — 82 C++ unit/flow/safety tests in CI, plus an opt-in real-terminal
+  integration test.
 
 ## 📊 Feature status
 
@@ -203,7 +226,7 @@ cmake -S package/cpp/tests -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build && ctest --test-dir build --output-on-failure
 ```
 
-77 tests cover LRC, packet (de)framing edge cases, every builder's byte layout,
+82 tests cover LRC, packet (de)framing edge cases, every builder's byte layout,
 every response parser, and the documented payment / reversal / re-pay / progress
 / receipt / NAK-retransmit / timeout flows (against an in-memory `FakeTransport`).
 
