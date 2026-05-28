@@ -12,15 +12,11 @@ concurrency:
 
 permissions:
   contents: read
-  packages: read
 
 jobs:
   typecheck:
     name: Typecheck + Nitrogen codegen
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: package
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -29,16 +25,21 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        # @padosoft/config lives on GitHub Packages (padosoft/ts-support).
-        # bunfig.toml maps the `padosoft` scope to npm.pkg.github.com via
-        # $GESCAT_NPM_TOKEN; GitHub Packages still wants a token even for public
-        # packages, so fall back to the Actions GITHUB_TOKEN.
-        env:
-          GESCAT_NPM_TOKEN: ${{ secrets.GESCAT_NPM_TOKEN || secrets.GITHUB_TOKEN }}
-        run: bun install
+        # @padosoft/config is a tooling-only root devDep (the base for the main
+        # tsconfig.json / biome.json) that lives on a private GitHub Packages
+        # registry. CI doesn't need it — we typecheck with the self-contained
+        # tsconfig.ci.json and don't run biome here — so drop it before install
+        # to avoid any private-registry auth. (jq is preinstalled on the runner.)
+        run: |
+          jq 'del(.devDependencies["@padosoft/config"])' package.json > package.json.tmp
+          mv package.json.tmp package.json
+          rm -f bun.lock
+          bun install
 
       - name: Nitrogen codegen
-        run: ./node_modules/.bin/nitrogen
+        working-directory: package
+        run: bunx nitrogen
 
       - name: Typecheck (self-contained config)
+        working-directory: package
         run: bunx tsc --noEmit -p tsconfig.ci.json
