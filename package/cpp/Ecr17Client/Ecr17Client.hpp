@@ -55,8 +55,14 @@ class HybridEcr17Client : public HybridEcr17ClientSpec {
     std::string cashRegisterIdOr(const std::optional<std::string>& override) const;
     // Runs a transaction, attaching the tokenization 'U' additional-data message
     // when `tokenization` is set (request must be built with withAdditionalData=true).
+    // On a mid-command disconnect with autoReconnect enabled, the socket is
+    // reconnected; the command is retried ONLY if `safeToRetry` (read-only ops),
+    // never for financial ops (a blind retry could double-charge — recover via
+    // sendLastResult / 'G' instead).
     DecodedPacket runTransaction(const std::string& mainPayload,
-                                 const std::optional<TokenizationRequest>& tokenization);
+                                 const std::optional<TokenizationRequest>& tokenization,
+                                 bool safeToRetry);
+    void runAckOnly(const std::string& payload, bool safeToRetry);
 
     Ecr17Config config_;
 
