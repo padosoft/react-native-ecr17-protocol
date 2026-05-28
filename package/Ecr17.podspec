@@ -26,6 +26,10 @@ Pod::Spec.new do |s|
     "cpp/tests/**/*"
   ]
 
+  s.pod_target_xcconfig = {
+    'HEADER_SEARCH_PATHS' => '"$(PODS_TARGET_SRCROOT)/cpp"'
+  }
+
   load 'nitrogen/generated/ios/Ecr17+autolinking.rb'
   add_nitrogen_files(s)
 
