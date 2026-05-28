@@ -3,8 +3,10 @@ name: Android build
 on:
   push:
     branches: [main]
-  pull_request:
   workflow_dispatch:
+  # Not run on every PR push (a full Expo+NDK build is ~15-20 min). Trigger
+  # manually (gh workflow run "Android build" --ref <branch>) when a native
+  # change is ready to verify.
 
 concurrency:
   group: android-${{ github.ref }}

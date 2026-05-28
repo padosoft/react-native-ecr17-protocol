@@ -37,6 +37,31 @@ build job. Org disallows making the package public anyway.
 - [ ] Phase 8 — CI: typecheck + nitrogen check + Android/iOS build jobs
 - [ ] Phase 9 — distill LESSON.md into AGENTS.md / rules / skills
 
+## Native impl spec (turnkey — all APIs confirmed from generated headers)
+Transport C++ spec (generated): `connect(string host,double port,double timeoutMs)->Promise<void>`,
+`disconnect()`, `isConnected()->bool`, `send(shared_ptr<ArrayBuffer>)`,
+`setOnData((shared_ptr<ArrayBuffer>)->void)`, `setOnDisconnect(()->void)`.
+- ArrayBuffer: `ArrayBuffer::copy(const std::vector<uint8_t>&)` to send; read via
+  `buf->data()` (uint8_t*) + `buf->size()` (owning native buffers are thread-safe).
+- Registry: `#include <NitroModules/HybridObjectRegistry.hpp>`;
+  `auto obj = HybridObjectRegistry::createHybridObject("Ecr17Transport");`
+  `auto t = std::static_pointer_cast<HybridEcr17TransportSpec>(obj);`
+- NativeTransportAdapter : Transport — store host/port/timeout (from config);
+  connect() -> t->connect(host,port,timeout); send(vector)-> t->send(ArrayBuffer::copy(v));
+  setDataCallback -> t->setOnData([cb](buf){ cb(vector(buf->data(),buf->data()+buf->size())); }).
+- Native impls (auto-globbed iOS / android src): HybridEcr17Transport.kt extends
+  HybridEcr17TransportSpec() (java.net.Socket + reader thread -> onData(ArrayBuffer));
+  HybridEcr17Transport.swift extends HybridEcr17TransportSpec (Network.framework).
+  Nitro generates the JNI bridge for the Kotlin HybridObject (no manual JNI).
+- Client (Phase 4): own NativeTransportAdapter + Ecr17Session(adapter, SessionConfig
+  from config_). Commands: Promise<T>::async([this,req]{ ensureConnected();
+  auto pkt = session.exchange(Ecr17Protocol::buildX(...)); auto p = Ecr17Response::parseX(pkt.payload);
+  return mapToNitro(p); }). Map: outcome->TransactionOutcome (OK/KO/CARDNOTPRESENT/
+  UNKNOWNTAG/UNKNOWN), cardType "1"/"2"/"3"->DEBIT/CREDIT/OTHER else UNKNOWN,
+  entryMode ICC/MAG/MAN/CLM/CLI->ICC/MAG/MANUAL/CLESSMAG/CLESSICC. Optional strings
+  -> std::optional (empty => nullopt). amountCents is double in requests (cast int).
+- Verify ONLY via Android build job (workflow_dispatch). Batch native edits; one build per batch.
+
 ## Current task / resume notes
 Phase 4: wire HybridEcr17Client to real logic:
 - Hold a Transport (NativeTransportAdapter wrapping a generated
