@@ -35,6 +35,18 @@
   Methods registered in `loadHybridMethods()` via `registerHybridMethod`.
 
 ## Build wiring
+- **Nitro C++ HybridObject impl header MUST be named after `implementationClassName`
+  and be on the include path.** nitrogen's generated `Ecr17OnLoad.cpp` does a flat
+  `#include "HybridEcr17Client.hpp"` (the impl class name from `nitro.json`). So the
+  impl file must be `HybridEcr17Client.{hpp,cpp}` (not `Ecr17Client.*`) AND its dir
+  must be in `CMakeLists.txt` `include_directories` (we added `../cpp/Ecr17Client`).
+  This only surfaces when the example app actually depends on the package — the
+  `android-build` CI compiles the package's C++ ONLY when a consumer autolinks it;
+  before the example took the dependency, `HybridEcr17Client`/adapter were never
+  truly compiled, hiding the bug. cpp-tests don't cover the client either.
+- **Downcasting a `createHybridObject` result needs `dynamic_pointer_cast`**, not
+  `static_pointer_cast`: `margelo::nitro::HybridObject` is a *virtual* base, so a
+  static downcast is ill-formed. Null-check the result.
 - **Android `.so` loading + autolinking**: a Nitro module still needs an
   autolinked `ReactPackage` so its native lib loads at runtime. `Ecr17Package`
   (`com.ecr17`, a `BaseReactPackage` returning no modules) loads `libEcr17.so`

@@ -104,12 +104,14 @@ export function clear(): void {
 
 /** Flush pending lines and open the OS share sheet for the log file. */
 export async function exportShare(): Promise<void> {
+  // Never throws: the Export button calls this without a catch, so a failed or
+  // cancelled share must not surface as an unhandled rejection.
   try {
     logFile().write(fileLines.join('\n') + '\n');
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(logFile().uri);
+    }
   } catch {
-    // ignore — share whatever is on disk
-  }
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(logFile().uri);
+    // ignore write/share failures (incl. user cancellation)
   }
 }

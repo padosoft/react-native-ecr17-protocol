@@ -12,7 +12,7 @@ add_compile_options(-DRN_SERIALIZABLE_STATE=1)
 add_library(${PACKAGE_NAME} SHARED
 	src/main/cpp/cpp-adapter.cpp
 	../cpp/Ecr17.cpp
-	../cpp/Ecr17Client/Ecr17Client.cpp
+	../cpp/Ecr17Client/HybridEcr17Client.cpp
 	../cpp/Ecr17Protocol/Ecr17Protocol.cpp
 	../cpp/Ecr17Response/Ecr17Response.cpp
 	../cpp/Lcr/Lcr.cpp
@@ -28,6 +28,7 @@ include(${CMAKE_SOURCE_DIR}/../nitrogen/generated/android/Ecr17+autolinking.cmak
 include_directories(
         "src/main/cpp"
         "../cpp"
+        "../cpp/Ecr17Client"  # generated Ecr17OnLoad.cpp does a flat #include "HybridEcr17Client.hpp"
 )
 
 find_library(LOG_LIB log)

@@ -42,10 +42,12 @@ export default function DebugConsoleScreen() {
     const outcome = (result as { outcome?: string } | undefined)?.outcome;
     if (result === undefined) {
       setToast({ text: 'Error — see log', color: colors.error });
-    } else if (outcome === 'ko' || outcome === 'unknown') {
-      setToast({ text: `KO (${outcome})`, color: colors.ko });
-    } else {
+    } else if (outcome === undefined || outcome === 'ok') {
+      // No outcome field (e.g. status/vas/void) or an explicit OK.
       setToast({ text: 'OK', color: colors.ok });
+    } else {
+      // ko / cardNotPresent / unknownTag / unknown.
+      setToast({ text: `KO (${outcome})`, color: colors.ko });
     }
     setTimeout(() => setToast(null), 2500);
   }, []);

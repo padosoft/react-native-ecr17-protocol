@@ -96,6 +96,10 @@ export function useEcr17(config: Ecr17Config): UseEcr17 {
   const clientRef = useRef<Ecr17Client | null>(null);
   const configRef = useRef(config);
   configRef.current = config;
+  // Serialized form of the config last pushed to the client, so we re-`configure`
+  // only when the operator actually changed something (configure resets the
+  // transport, so we must not call it on every command).
+  const appliedRef = useRef('');
 
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [busy, setBusy] = useState(false);
@@ -118,12 +122,22 @@ export function useEcr17(config: Ecr17Config): UseEcr17 {
     return clientRef.current;
   }, []);
 
+  // Push the latest form config into the client before connecting/running, so a
+  // command never uses stale settings just because Connect wasn't pressed again.
+  const applyConfig = useCallback((c: Ecr17Client) => {
+    const serialized = JSON.stringify(configRef.current);
+    if (serialized !== appliedRef.current) {
+      c.configure(configRef.current);
+      appliedRef.current = serialized;
+    }
+  }, []);
+
   const connect = useCallback(async () => {
     const c = ensureClient();
     setBusy(true);
     log('sent', 'connect()', JSON.stringify(configRef.current));
     try {
-      c.configure(configRef.current); // apply the latest form config
+      applyConfig(c); // push the latest form config
       await c.connect();
       log('ok', 'connected');
     } catch (e) {
@@ -131,7 +145,7 @@ export function useEcr17(config: Ecr17Config): UseEcr17 {
     } finally {
       setBusy(false);
     }
-  }, [ensureClient]);
+  }, [ensureClient, applyConfig]);
 
   const disconnect = useCallback(() => {
     try {
@@ -145,6 +159,7 @@ export function useEcr17(config: Ecr17Config): UseEcr17 {
   const run = useCallback(
     async (key: string, params: Params): Promise<unknown> => {
       const c = ensureClient();
+      applyConfig(c); // ensure the command uses the current form config
       setBusy(true);
       setLastProgress('');
       log('sent', key, JSON.stringify(params));
@@ -152,7 +167,10 @@ export function useEcr17(config: Ecr17Config): UseEcr17 {
         const result = await dispatch(c, key, params);
         const outcome = (result as { outcome?: string } | undefined)?.outcome;
         const detail = result === undefined ? 'ok' : JSON.stringify(result);
-        log(outcome === 'ko' || outcome === 'unknown' ? 'ko' : 'ok', `${key} →`, detail);
+        // Any defined outcome other than 'ok' (ko / cardNotPresent / unknownTag /
+        // unknown) is a non-success; void results (no outcome) are ok.
+        const failed = outcome !== undefined && outcome !== 'ok';
+        log(failed ? 'ko' : 'ok', `${key} →`, detail);
         return result;
       } catch (e) {
         log('error', `${key} failed`, String(e));
@@ -161,7 +179,7 @@ export function useEcr17(config: Ecr17Config): UseEcr17 {
         setBusy(false);
       }
     },
-    [ensureClient]
+    [ensureClient, applyConfig]
   );
 
   useEffect(

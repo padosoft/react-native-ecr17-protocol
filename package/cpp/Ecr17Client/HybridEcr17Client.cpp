@@ -1,4 +1,4 @@
-#include "Ecr17Client.hpp"
+#include "HybridEcr17Client.hpp"
 
 #include <NitroModules/HybridObjectRegistry.hpp>
 
@@ -224,7 +224,12 @@ void HybridEcr17Client::ensureInit() {
         return;
     }
     auto obj = HybridObjectRegistry::createHybridObject("Ecr17Transport");
-    transport_ = std::static_pointer_cast<HybridEcr17TransportSpec>(obj);
+    // HybridObject is a *virtual* base, so static_pointer_cast can't downcast
+    // from it — must use dynamic_pointer_cast.
+    transport_ = std::dynamic_pointer_cast<HybridEcr17TransportSpec>(obj);
+    if (!transport_) {
+        throw std::runtime_error("ECR17: registry returned an incompatible Ecr17Transport object");
+    }
     adapter_ = std::make_shared<NativeTransportAdapter>(transport_);
 
     SessionConfig sc;
@@ -323,11 +328,11 @@ void HybridEcr17Client::runAckOnly(const std::string& payload, bool safeToRetry)
 }
 
 std::shared_ptr<Promise<void>> HybridEcr17Client::connect() {
-    ensureInit();
-    if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::CONNECTING);
-    const double port = config_.port.value_or(1024);
-    const double timeout = config_.connectionTimeoutMs.value_or(5000);
-    return transport_->connect(config_.host, port, timeout);
+    // Delegate to ensureConnected so the explicit Connect path emits CONNECTING
+    // and then CONNECTED on success (consistent with command auto-connect);
+    // returning the raw transport promise would leave listeners stuck on
+    // CONNECTING. Runs on a worker thread (ensureConnected blocks until ready).
+    return Promise<void>::async([this]() { ensureConnected(); });
 }
 
 void HybridEcr17Client::disconnect() {
