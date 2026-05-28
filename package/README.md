@@ -4,6 +4,8 @@
 
 **A React Native / Nitro module for the Italian ECR17 payment protocol — drive Nexi Group POS terminals over LAN, straight from your cash-register app.**
 
+**The most complete open-source ECR17 toolkit for React Native & native mobile (iOS/Android).**
+
 [![npm version](https://img.shields.io/npm/v/react-native-ecr17.svg?style=flat-square)](https://www.npmjs.com/package/react-native-ecr17)
 [![npm downloads](https://img.shields.io/npm/dm/react-native-ecr17.svg?style=flat-square)](https://www.npmjs.com/package/react-native-ecr17)
 [![License: MIT](https://img.shields.io/npm/l/react-native-ecr17.svg?style=flat-square)](https://github.com/padosoft/react-native-ecr17-protocol/blob/main/LICENSE)
@@ -18,6 +20,7 @@
 ## 📚 Table of contents
 
 - [What is ECR17?](#-what-is-ecr17)
+- [Why this exists](#-why-this-exists)
 - [Highlights](#-highlights)
 - [Feature status](#-feature-status)
 - [Requirements](#requirements)
@@ -45,6 +48,30 @@ This library speaks that protocol from React Native, with the protocol engine
 written in C++ and bridged via [Nitro Modules](https://nitro.margelo.com). The
 full protocol reference is vendored in
 [`docs/`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/docs).
+
+## 🎯 Why this exists
+
+Integrating Italian POS terminals has long been needlessly painful. The ECR17
+protocol is **not publicly documented** — the specifications are shared under NDA,
+mostly with established point-of-sale software vendors — so everyone else
+reverse-engineers it by trial and error across terminals and firmware versions.
+(The classic trap that blocks almost everyone: the LRC is computed over a base of
+`0x7F`, not `0x00` — handled here, and configurable per terminal.)
+
+A few community efforts exist for server-side languages, but there was **nothing
+for React Native or native mobile (iOS/Android)**. To our knowledge this is the
+**most complete open-source ECR17 toolkit for React Native and native mobile**:
+the full command set, response parsing, the ACK/NAK + retransmit orchestration,
+configurable LRC modes, and payment-safety — all tested.
+
+The goal is simple: **low-level, Android and iOS developers should no longer
+struggle to talk to Italian POS terminals.** No NDA hunting, no guesswork — just
+`await client.pay({ amountCents })`. These protocols should be this approachable
+for everyone, and now, for mobile, they are.
+
+> 🤝 Compatibility notes (lrcMode, field quirks per terminal/firmware) are
+> welcome as issues, so we can build, together, the reference the ecosystem
+> never had.
 
 ## ✨ Highlights
 
