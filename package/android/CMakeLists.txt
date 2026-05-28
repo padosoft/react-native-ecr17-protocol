@@ -18,6 +18,7 @@ add_library(${PACKAGE_NAME} SHARED
 	../cpp/Lcr/Lcr.cpp
 	../cpp/PacketCodec/PacketCodec.cpp
 	../cpp/Session/Ecr17Session.cpp
+	../cpp/Transport/NativeTransportAdapter.cpp
 )
 
 # Add Nitrogen specs :)

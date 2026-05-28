@@ -102,6 +102,49 @@ bool Ecr17Session::isReceipt(const std::string& payload) {
     return payload.size() >= 10 && payload[9] == 'S';
 }
 
+void Ecr17Session::sendAckOnly(const std::string& requestPayload) {
+    const std::vector<uint8_t> requestFrame = codec_.encodeApplication(requestPayload);
+
+    transport_.send(requestFrame);
+    int attempts = 1;
+    auto deadline = clock::now() + std::chrono::milliseconds(config_.ackTimeoutMs);
+
+    while (true) {
+        const auto remaining =
+            std::chrono::duration_cast<std::chrono::milliseconds>(deadline - clock::now()).count();
+        if (remaining <= 0) {
+            if (attempts > config_.retryCount) {
+                throw std::runtime_error("ECR17: no ACK after " + std::to_string(attempts) +
+                                         " attempts");
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(config_.retryDelayMs));
+            transport_.send(requestFrame);
+            ++attempts;
+            deadline = clock::now() + std::chrono::milliseconds(config_.ackTimeoutMs);
+            continue;
+        }
+
+        std::optional<DecodedPacket> pkt = waitForFrame(static_cast<int>(remaining));
+        if (!pkt) {
+            continue;
+        }
+        if (pkt->type == PacketType::ACK) {
+            return;
+        }
+        if (pkt->type == PacketType::NAK) {
+            if (attempts > config_.retryCount) {
+                throw std::runtime_error("ECR17: NAK after " + std::to_string(attempts) +
+                                         " attempts");
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(config_.retryDelayMs));
+            transport_.send(requestFrame);
+            ++attempts;
+            deadline = clock::now() + std::chrono::milliseconds(config_.ackTimeoutMs);
+        }
+        // Ignore any progress frames that may precede the ACK.
+    }
+}
+
 DecodedPacket Ecr17Session::exchange(const std::string& requestPayload) {
     const std::vector<uint8_t> requestFrame = codec_.encodeApplication(requestPayload);
 

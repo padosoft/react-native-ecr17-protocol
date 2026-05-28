@@ -43,6 +43,12 @@ class Ecr17Session {
     // retransmission exhaustion, ACK/response timeout, or transport disconnect.
     DecodedPacket exchange(const std::string& requestPayload);
 
+    // For commands whose only reply is the physical ACK (e.g. enable/disable ECR
+    // printing 'E'). Performs the ACK handshake with retransmission and returns
+    // once ACK is received; does NOT wait for an application response. Throws on
+    // retransmission exhaustion / timeout / disconnect.
+    void sendAckOnly(const std::string& requestPayload);
+
    private:
     void onData(const std::vector<uint8_t>& data);
     void onDisconnect();

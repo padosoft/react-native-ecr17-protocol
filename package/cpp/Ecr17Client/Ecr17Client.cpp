@@ -1,93 +1,409 @@
 #include "Ecr17Client.hpp"
 
-#include <functional>
+#include <NitroModules/HybridObjectRegistry.hpp>
+
+#include <chrono>
+#include <ctime>
+#include <optional>
 #include <stdexcept>
 #include <string>
 
+#include "Ecr17Protocol/Ecr17Protocol.hpp"
+#include "Ecr17Response/Ecr17Response.hpp"
+
 namespace margelo::nitro::ecr17 {
 
+using margelo::nitro::HybridObjectRegistry;
 using margelo::nitro::Promise;
 
-void HybridEcr17Client::configure(const Ecr17Config& config) { config_ = config; }
+namespace {
+
+std::optional<std::string> optStr(const std::string& s) {
+    return s.empty() ? std::nullopt : std::optional<std::string>(s);
+}
+
+std::optional<double> optNum(const std::string& s) {
+    if (s.empty()) {
+        return std::nullopt;
+    }
+    try {
+        return std::stod(s);
+    } catch (...) {
+        return std::nullopt;
+    }
+}
+
+TransactionOutcome mapOutcome(Outcome o) {
+    switch (o) {
+        case Outcome::Ok: return TransactionOutcome::OK;
+        case Outcome::Ko: return TransactionOutcome::KO;
+        case Outcome::CardNotPresent: return TransactionOutcome::CARDNOTPRESENT;
+        case Outcome::UnknownTag: return TransactionOutcome::UNKNOWNTAG;
+        default: return TransactionOutcome::UNKNOWN;
+    }
+}
+
+std::optional<CardType> mapCardType(const std::string& raw) {
+    if (raw == "1") return CardType::DEBIT;
+    if (raw == "2") return CardType::CREDIT;
+    if (raw == "3") return CardType::OTHER;
+    return std::nullopt;
+}
+
+std::optional<TransactionEntryMode> mapEntryMode(const std::string& raw) {
+    if (raw == "ICC") return TransactionEntryMode::ICC;
+    if (raw == "MAG") return TransactionEntryMode::MAG;
+    if (raw == "MAN") return TransactionEntryMode::MANUAL;
+    if (raw == "CLM") return TransactionEntryMode::CLESSMAG;
+    if (raw == "CLI") return TransactionEntryMode::CLESSICC;
+    return std::nullopt;
+}
+
+char mapPaymentType(const std::optional<PaymentCardType>& t) {
+    if (!t.has_value()) return '0';
+    switch (*t) {
+        case PaymentCardType::DEBIT: return '1';
+        case PaymentCardType::CREDIT: return '2';
+        case PaymentCardType::OTHER: return '3';
+        default: return '0';  // AUTO
+    }
+}
+
+PaymentResult mapPayment(const PaymentResponse& p) {
+    PaymentResult r;
+    r.outcome = mapOutcome(p.outcome);
+    r.resultCode = p.resultCode;
+    r.pan = optStr(p.pan);
+    r.entryMode = mapEntryMode(p.transactionType);
+    r.authCode = optStr(p.authCode);
+    r.hostDateTime = optStr(p.hostDateTime);
+    r.cardType = mapCardType(p.cardType);
+    r.acquirerId = optStr(p.acquirerId);
+    r.stan = optStr(p.stan);
+    r.onlineId = optStr(p.onlineId);
+    r.errorDescription = optStr(p.errorDescription);
+    if (p.currency.applied) {
+        CurrencyExchange ce;  // the Nitro-generated struct
+        ce.applied = true;
+        ce.rate = optNum(p.currency.rate);
+        ce.currencyCode = optStr(p.currency.currencyCode);
+        ce.amountCents = optNum(p.currency.amount);
+        ce.precision = optNum(p.currency.precision);
+        r.currencyExchange = ce;
+    }
+    return r;
+}
+
+ReversalResult mapReversal(const PaymentResponse& p) {
+    ReversalResult r;
+    r.outcome = mapOutcome(p.outcome);
+    r.resultCode = p.resultCode;
+    r.pan = optStr(p.pan);
+    r.entryMode = mapEntryMode(p.transactionType);
+    r.hostDateTime = optStr(p.hostDateTime);
+    r.cardType = mapCardType(p.cardType);
+    r.acquirerId = optStr(p.acquirerId);
+    r.stan = optStr(p.stan);
+    r.onlineId = optStr(p.onlineId);
+    r.errorDescription = optStr(p.errorDescription);
+    return r;
+}
+
+CardVerificationResult mapCardVerify(const PaymentResponse& p) {
+    CardVerificationResult r;
+    r.outcome = mapOutcome(p.outcome);
+    r.resultCode = p.resultCode;
+    r.pan = optStr(p.pan);
+    r.entryMode = mapEntryMode(p.transactionType);
+    r.authCode = optStr(p.authCode);
+    r.hostDateTime = optStr(p.hostDateTime);
+    r.cardType = mapCardType(p.cardType);
+    r.acquirerId = optStr(p.acquirerId);
+    r.stan = optStr(p.stan);
+    r.onlineId = optStr(p.onlineId);
+    r.errorDescription = optStr(p.errorDescription);
+    return r;
+}
+
+PreAuthResult mapPreAuth(const PreAuthResponse& p) {
+    PreAuthResult r;
+    r.outcome = mapOutcome(p.outcome);
+    r.resultCode = p.resultCode;
+    r.pan = optStr(p.pan);
+    r.entryMode = mapEntryMode(p.transactionType);
+    r.authCode = optStr(p.authCode);
+    r.preAuthorizedAmountCents = optNum(p.preAuthorizedAmount);
+    r.preAuthCode = optStr(p.preAuthCode);
+    r.actionCode = optStr(p.actionCode);
+    r.hostDateTime = optStr(p.hostDateTime);
+    r.cardType = mapCardType(p.cardType);
+    r.acquirerId = optStr(p.acquirerId);
+    r.stan = optStr(p.stan);
+    r.onlineId = optStr(p.onlineId);
+    r.errorDescription = optStr(p.errorDescription);
+    return r;
+}
+
+PosStatusResponse mapStatus(const StatusResponse& s) {
+    PosStatusResponse r;
+    r.terminalId = s.terminalId;
+    r.status = static_cast<double>(s.status);
+    r.softwareRelease = s.softwareRelease;
+    // Parse "DDMMYYhhmm" into a time_point; fall back to epoch on bad input.
+    std::chrono::system_clock::time_point tp{};
+    if (s.dateTimeRaw.size() >= 10) {
+        try {
+            std::tm tm{};
+            tm.tm_mday = std::stoi(s.dateTimeRaw.substr(0, 2));
+            tm.tm_mon = std::stoi(s.dateTimeRaw.substr(2, 2)) - 1;
+            tm.tm_year = 100 + std::stoi(s.dateTimeRaw.substr(4, 2));  // 20YY
+            tm.tm_hour = std::stoi(s.dateTimeRaw.substr(6, 2));
+            tm.tm_min = std::stoi(s.dateTimeRaw.substr(8, 2));
+            tm.tm_isdst = -1;
+            std::time_t t = std::mktime(&tm);
+            if (t != -1) {
+                tp = std::chrono::system_clock::from_time_t(t);
+            }
+        } catch (...) {
+            // keep epoch
+        }
+    }
+    r.terminalDateTime = tp;
+    return r;
+}
+
+TotalsResult mapTotals(const TotalsResponse& t) {
+    TotalsResult r;
+    r.outcome = mapOutcome(t.outcome);
+    r.resultCode = t.resultCode;
+    r.posTotalCents = optNum(t.posTotal).value_or(0.0);
+    return r;
+}
+
+CloseSessionResult mapClose(const CloseResponse& c) {
+    CloseSessionResult r;
+    r.outcome = mapOutcome(c.outcome);
+    r.resultCode = c.resultCode;
+    r.posTotalCents = optNum(c.posTotal);
+    r.hostTotalCents = optNum(c.hostTotal);
+    r.actionCode = optStr(c.actionCode);
+    r.errorDescription = optStr(c.errorDescription);
+    return r;
+}
+
+VasResult mapVas(const VasResponse& v) {
+    VasResult r;
+    r.responseId = v.responseId;
+    r.responseMessage = v.responseMessage;
+    r.orderId = optStr(v.orderId);
+    r.rawXml = v.rawXml;
+    return r;
+}
+
+}  // namespace
+
+void HybridEcr17Client::configure(const Ecr17Config& config) {
+    config_ = config;
+    // Force re-init so a new configuration rebuilds the session/timeouts.
+    session_.reset();
+    adapter_.reset();
+    transport_.reset();
+}
 
 Ecr17Config HybridEcr17Client::configuration() { return config_; }
 
-// Phase 0 leaves the operations as rejecting stubs: the spec/API is in place but
-// the transport + orchestration + parsing land in later phases. Each command
-// returns a Promise that rejects with a clear message (instead of crashing).
-//
-// Promise<T>::async takes a `std::function<T()>`: the lambda takes no arguments
-// and returns T (or throws, which rejects the promise).
-namespace {
-[[noreturn]] void notImplemented(const char* method) {
-    throw std::runtime_error(std::string("Ecr17Client::") + method +
-                             " is not implemented yet: transport/orchestration/parsing pending");
+void HybridEcr17Client::ensureInit() {
+    if (session_) {
+        return;
+    }
+    auto obj = HybridObjectRegistry::createHybridObject("Ecr17Transport");
+    transport_ = std::static_pointer_cast<HybridEcr17TransportSpec>(obj);
+    adapter_ = std::make_shared<NativeTransportAdapter>(transport_);
+
+    SessionConfig sc;
+    sc.lrcMode = config_.lrcMode.value_or(LrcMode::STD);
+    sc.ackTimeoutMs = static_cast<int>(config_.ackTimeoutMs.value_or(2000));
+    sc.responseTimeoutMs = static_cast<int>(config_.responseTimeoutMs.value_or(60000));
+    sc.retryCount = static_cast<int>(config_.retryCount.value_or(3));
+    sc.retryDelayMs = static_cast<int>(config_.retryDelayMs.value_or(200));
+    session_ = std::make_unique<Ecr17Session>(*adapter_, sc);
+
+    session_->setOnProgress([this](const std::string& message) {
+        if (onProgress_) onProgress_(ProgressEvent{message});
+    });
+    session_->setOnReceiptLine([this](const std::string& line) {
+        if (onReceiptLine_) onReceiptLine_(ReceiptLine{line});
+    });
 }
-}  // namespace
+
+void HybridEcr17Client::requireConnected() {
+    if (!transport_ || !transport_->isConnected()) {
+        throw std::runtime_error("ECR17: not connected — call connect() first");
+    }
+}
+
+std::string HybridEcr17Client::cashRegisterIdOr(const std::optional<std::string>& override) const {
+    return override.value_or(config_.cashRegisterId);
+}
 
 std::shared_ptr<Promise<void>> HybridEcr17Client::connect() {
-    return Promise<void>::async([]() { notImplemented("connect"); });
+    ensureInit();
+    if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::CONNECTING);
+    const double port = config_.port.value_or(1024);
+    const double timeout = config_.connectionTimeoutMs.value_or(5000);
+    return transport_->connect(config_.host, port, timeout);
 }
 
-void HybridEcr17Client::disconnect() { /* no-op until transport is wired */ }
+void HybridEcr17Client::disconnect() {
+    if (transport_) {
+        transport_->disconnect();
+    }
+    if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::DISCONNECTED);
+}
 
-bool HybridEcr17Client::isConnected() { return false; }
+bool HybridEcr17Client::isConnected() { return transport_ && transport_->isConnected(); }
 
 std::shared_ptr<Promise<PosStatusResponse>> HybridEcr17Client::status() {
-    return Promise<PosStatusResponse>::async([]() -> PosStatusResponse { notImplemented("status"); });
+    return Promise<PosStatusResponse>::async([this]() -> PosStatusResponse {
+        requireConnected();
+        auto pkt = session_->exchange(Ecr17Protocol::buildStatusMessage(config_.terminalId));
+        return mapStatus(Ecr17Response::parseStatus(pkt.payload));
+    });
 }
 
-std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::pay(const PaymentRequest&) {
-    return Promise<PaymentResult>::async([]() -> PaymentResult { notImplemented("pay"); });
+std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::pay(const PaymentRequest& request) {
+    return Promise<PaymentResult>::async([this, request]() -> PaymentResult {
+        requireConnected();
+        auto payload = Ecr17Protocol::buildPaymentMessage(
+            config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
+            static_cast<int>(request.amountCents), mapPaymentType(request.paymentType),
+            request.cardAlreadyPresent.value_or(false), false, request.receiptText.value_or(""));
+        auto pkt = session_->exchange(payload);
+        return mapPayment(Ecr17Response::parsePayment(pkt.payload));
+    });
 }
 
-std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::payExtended(const PaymentRequest&) {
-    return Promise<PaymentResult>::async([]() -> PaymentResult { notImplemented("payExtended"); });
+std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::payExtended(const PaymentRequest& request) {
+    return Promise<PaymentResult>::async([this, request]() -> PaymentResult {
+        requireConnected();
+        auto payload = Ecr17Protocol::buildExtendedPaymentMessage(
+            config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
+            static_cast<int>(request.amountCents), mapPaymentType(request.paymentType),
+            request.cardAlreadyPresent.value_or(false), false, request.receiptText.value_or(""));
+        auto pkt = session_->exchange(payload);
+        return mapPayment(Ecr17Response::parsePayment(pkt.payload));
+    });
 }
 
-std::shared_ptr<Promise<ReversalResult>> HybridEcr17Client::reverse(const ReversalRequest&) {
-    return Promise<ReversalResult>::async([]() -> ReversalResult { notImplemented("reverse"); });
+std::shared_ptr<Promise<ReversalResult>> HybridEcr17Client::reverse(const ReversalRequest& request) {
+    return Promise<ReversalResult>::async([this, request]() -> ReversalResult {
+        requireConnected();
+        auto payload = Ecr17Protocol::buildReversalMessage(
+            config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
+            request.stan.value_or("000000"));
+        auto pkt = session_->exchange(payload);
+        return mapReversal(Ecr17Response::parsePayment(pkt.payload));
+    });
 }
 
-std::shared_ptr<Promise<PreAuthResult>> HybridEcr17Client::preAuth(const PreAuthRequest&) {
-    return Promise<PreAuthResult>::async([]() -> PreAuthResult { notImplemented("preAuth"); });
+std::shared_ptr<Promise<PreAuthResult>> HybridEcr17Client::preAuth(const PreAuthRequest& request) {
+    return Promise<PreAuthResult>::async([this, request]() -> PreAuthResult {
+        requireConnected();
+        auto payload = Ecr17Protocol::buildPreAuthMessage(
+            config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
+            static_cast<int>(request.amountCents), mapPaymentType(request.paymentType),
+            request.cardAlreadyPresent.value_or(false), false, request.receiptText.value_or(""));
+        auto pkt = session_->exchange(payload);
+        return mapPreAuth(Ecr17Response::parsePreAuth(pkt.payload));
+    });
 }
 
-std::shared_ptr<Promise<PreAuthResult>> HybridEcr17Client::incrementalAuth(const IncrementalAuthRequest&) {
-    return Promise<PreAuthResult>::async([]() -> PreAuthResult { notImplemented("incrementalAuth"); });
+std::shared_ptr<Promise<PreAuthResult>> HybridEcr17Client::incrementalAuth(
+    const IncrementalAuthRequest& request) {
+    return Promise<PreAuthResult>::async([this, request]() -> PreAuthResult {
+        requireConnected();
+        auto payload = Ecr17Protocol::buildIncrementalMessage(
+            config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
+            static_cast<int>(request.amountCents), request.originalPreAuthCode, false,
+            request.receiptText.value_or(""));
+        auto pkt = session_->exchange(payload);
+        return mapPreAuth(Ecr17Response::parsePreAuth(pkt.payload));
+    });
 }
 
-std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::preAuthClosure(const PreAuthClosureRequest&) {
-    return Promise<PaymentResult>::async([]() -> PaymentResult { notImplemented("preAuthClosure"); });
+std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::preAuthClosure(
+    const PreAuthClosureRequest& request) {
+    return Promise<PaymentResult>::async([this, request]() -> PaymentResult {
+        requireConnected();
+        auto payload = Ecr17Protocol::buildPreAuthClosureMessage(
+            config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
+            static_cast<int>(request.amountCents), request.originalPreAuthCode, false,
+            request.receiptText.value_or(""));
+        auto pkt = session_->exchange(payload);
+        return mapPayment(Ecr17Response::parsePayment(pkt.payload));
+    });
 }
 
-std::shared_ptr<Promise<CardVerificationResult>> HybridEcr17Client::verifyCard(const CardVerificationRequest&) {
-    return Promise<CardVerificationResult>::async(
-        []() -> CardVerificationResult { notImplemented("verifyCard"); });
+std::shared_ptr<Promise<CardVerificationResult>> HybridEcr17Client::verifyCard(
+    const CardVerificationRequest& request) {
+    return Promise<CardVerificationResult>::async([this, request]() -> CardVerificationResult {
+        requireConnected();
+        auto payload = Ecr17Protocol::buildCardVerificationMessage(
+            config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
+            mapPaymentType(request.paymentType), false);
+        auto pkt = session_->exchange(payload);
+        return mapCardVerify(Ecr17Response::parsePayment(pkt.payload));
+    });
 }
 
 std::shared_ptr<Promise<CloseSessionResult>> HybridEcr17Client::closeSession() {
-    return Promise<CloseSessionResult>::async([]() -> CloseSessionResult { notImplemented("closeSession"); });
+    return Promise<CloseSessionResult>::async([this]() -> CloseSessionResult {
+        requireConnected();
+        auto payload = Ecr17Protocol::buildCloseSessionMessage(config_.terminalId, config_.cashRegisterId);
+        auto pkt = session_->exchange(payload);
+        return mapClose(Ecr17Response::parseClose(pkt.payload));
+    });
 }
 
 std::shared_ptr<Promise<TotalsResult>> HybridEcr17Client::totals() {
-    return Promise<TotalsResult>::async([]() -> TotalsResult { notImplemented("totals"); });
+    return Promise<TotalsResult>::async([this]() -> TotalsResult {
+        requireConnected();
+        auto payload = Ecr17Protocol::buildTotalsMessage(config_.terminalId, config_.cashRegisterId);
+        auto pkt = session_->exchange(payload);
+        return mapTotals(Ecr17Response::parseTotals(pkt.payload));
+    });
 }
 
 std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::sendLastResult() {
-    return Promise<PaymentResult>::async([]() -> PaymentResult { notImplemented("sendLastResult"); });
+    return Promise<PaymentResult>::async([this]() -> PaymentResult {
+        requireConnected();
+        auto payload = Ecr17Protocol::buildSendLastResultMessage(config_.terminalId, config_.cashRegisterId);
+        auto pkt = session_->exchange(payload);
+        return mapPayment(Ecr17Response::parsePayment(pkt.payload));
+    });
 }
 
-std::shared_ptr<Promise<void>> HybridEcr17Client::enableEcrPrinting(bool) {
-    return Promise<void>::async([]() { notImplemented("enableEcrPrinting"); });
+std::shared_ptr<Promise<void>> HybridEcr17Client::enableEcrPrinting(bool enabled) {
+    return Promise<void>::async([this, enabled]() {
+        requireConnected();
+        session_->sendAckOnly(Ecr17Protocol::buildEnableEcrPrintMessage(config_.terminalId, enabled));
+    });
 }
 
-std::shared_ptr<Promise<void>> HybridEcr17Client::reprint(bool) {
-    return Promise<void>::async([]() { notImplemented("reprint"); });
+std::shared_ptr<Promise<void>> HybridEcr17Client::reprint(bool toEcr) {
+    return Promise<void>::async([this, toEcr]() {
+        requireConnected();
+        session_->sendAckOnly(Ecr17Protocol::buildReprintMessage(config_.terminalId, toEcr));
+    });
 }
 
-std::shared_ptr<Promise<VasResult>> HybridEcr17Client::vas(const std::string&) {
-    return Promise<VasResult>::async([]() -> VasResult { notImplemented("vas"); });
+std::shared_ptr<Promise<VasResult>> HybridEcr17Client::vas(const std::string& xmlRequest) {
+    return Promise<VasResult>::async([this, xmlRequest]() -> VasResult {
+        requireConnected();
+        auto payload = Ecr17Protocol::buildVasMessage(config_.terminalId, config_.cashRegisterId, xmlRequest);
+        auto pkt = session_->exchange(payload);
+        return mapVas(Ecr17Response::parseVas(pkt.payload));
+    });
 }
 
 void HybridEcr17Client::setOnProgress(const std::function<void(const ProgressEvent&)>& callback) {

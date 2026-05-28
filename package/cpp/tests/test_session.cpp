@@ -156,3 +156,28 @@ TEST(Session, DisconnectDuringExchangeThrows) {
     Ecr17Session session(t, fastConfig());
     EXPECT_THROW(session.exchange("123456780P..."), std::runtime_error);
 }
+
+TEST(Session, SendAckOnlyReturnsOnAck) {
+    FakeTransport t;
+    PacketCodec codec(LrcMode::STD);
+    t.enqueueResponse(codec.encodeControl(PacketCodec::ACK));  // ACK, no app result
+    Ecr17Session session(t, fastConfig());
+    EXPECT_NO_THROW(session.sendAckOnly("123456780E1"));
+    EXPECT_EQ(t.applicationRequestCount(), 1u);
+}
+
+TEST(Session, SendAckOnlyRetransmitsOnNak) {
+    FakeTransport t;
+    PacketCodec codec(LrcMode::STD);
+    t.enqueueResponse(codec.encodeControl(PacketCodec::NAK));
+    t.enqueueResponse(codec.encodeControl(PacketCodec::ACK));
+    Ecr17Session session(t, fastConfig());
+    EXPECT_NO_THROW(session.sendAckOnly("123456780E0"));
+    EXPECT_EQ(t.applicationRequestCount(), 2u);
+}
+
+TEST(Session, SendAckOnlyTimesOut) {
+    FakeTransport t;  // no ACK
+    Ecr17Session session(t, fastConfig());
+    EXPECT_THROW(session.sendAckOnly("123456780E1"), std::runtime_error);
+}

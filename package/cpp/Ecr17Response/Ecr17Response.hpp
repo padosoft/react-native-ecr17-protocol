@@ -25,7 +25,9 @@ enum class Outcome {
 Outcome outcomeFromCode(const std::string& code);
 
 // Optional DCC / currency-exchange block (parsed from a 'V'/'v' response).
-struct CurrencyExchange {
+// Named DccInfo (not CurrencyExchange) to avoid clashing with the Nitro-generated
+// CurrencyExchange struct in the same namespace.
+struct DccInfo {
     bool applied = false;
     std::string rate;          // 8 digits, 4 decimals
     std::string currencyCode;  // alpha-3
@@ -47,7 +49,7 @@ struct PaymentResponse {
     std::string acquirerId;       // common
     std::string stan;             // common
     std::string onlineId;         // common
-    CurrencyExchange currency;    // only when DCC present
+    DccInfo currency;             // only when DCC present
 };
 
 struct StatusResponse {

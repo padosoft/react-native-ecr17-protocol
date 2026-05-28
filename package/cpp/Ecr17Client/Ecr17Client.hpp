@@ -2,7 +2,12 @@
 
 #include <NitroModules/Promise.hpp>
 
+#include <memory>
+
 #include "HybridEcr17ClientSpec.hpp"
+#include "HybridEcr17TransportSpec.hpp"
+#include "Session/Ecr17Session.hpp"
+#include "Transport/NativeTransportAdapter.hpp"
 
 namespace margelo::nitro::ecr17 {
 
@@ -41,10 +46,19 @@ class HybridEcr17Client : public HybridEcr17ClientSpec {
     void setOnConnectionStateChange(const std::function<void(ConnectionState)>& callback) override;
 
    protected:
+    // Lazily creates the native transport (via the Nitro registry), the adapter
+    // and the session, and wires session events to the JS callbacks.
+    void ensureInit();
+    // Throws if not connected (commands require an open connection).
+    void requireConnected();
+    std::string cashRegisterIdOr(const std::optional<std::string>& override) const;
+
     Ecr17Config config_;
 
-    // Event callbacks set from JS; invoked by the session during an exchange
-    // (progress display, streamed receipt lines, connection state changes).
+    std::shared_ptr<HybridEcr17TransportSpec> transport_;
+    std::shared_ptr<NativeTransportAdapter> adapter_;
+    std::unique_ptr<Ecr17Session> session_;
+
     std::function<void(const ProgressEvent&)> onProgress_{};
     std::function<void(const ReceiptLine&)> onReceiptLine_{};
     std::function<void(ConnectionState)> onConnectionStateChange_{};
