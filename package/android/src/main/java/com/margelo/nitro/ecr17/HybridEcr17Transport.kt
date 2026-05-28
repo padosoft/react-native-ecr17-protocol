@@ -2,6 +2,7 @@ package com.margelo.nitro.ecr17
 
 import com.margelo.nitro.core.ArrayBuffer
 import com.margelo.nitro.core.Promise
+import java.io.IOException
 import java.io.PushbackInputStream
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -86,8 +87,10 @@ class HybridEcr17Transport : HybridEcr17TransportSpec() {
                 onDataCallback?.invoke(ArrayBuffer.copy(buffer.copyOfRange(0, read)))
             }
           }
-        } catch (_: Throwable) {
-          // socket closed or read error
+        } catch (_: IOException) {
+          // Expected on socket close / read error. Other throwables (Error, unexpected
+          // RuntimeException) intentionally propagate so they're visible in dev; the
+          // finally still fires the drop notification before the thread unwinds.
         } finally {
           // Promptly close the socket so `isConnected()`'s `isClosed` check is an
           // immediate, reliable signal of the drop (no reliance on a write probe).
@@ -135,8 +138,8 @@ class HybridEcr17Transport : HybridEcr17TransportSpec() {
         }
       } catch (_: SocketTimeoutException) {
         true // idle but alive (no FIN received within the timeout)
-      } catch (_: Throwable) {
-        markDropped() // I/O error: treat as dropped
+      } catch (_: IOException) {
+        markDropped() // genuine I/O error: treat as dropped (other throwables propagate)
         false
       }
     }
