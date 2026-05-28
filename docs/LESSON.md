@@ -43,6 +43,16 @@
   guarded by `#ifdef __ANDROID__` (no-op on iOS). We attach in `ensureConnected`,
   `runTransaction`, `runAckOnly` (the worker-thread paths that hit the transport).
   Only reproducible by RUNNING the app — not by the build.
+- **`ClassNotFoundException` for the Kotlin HybridObject when created from a
+  worker thread.** After attaching a Nitro worker thread with `ThreadScope`,
+  `createHybridObject` does a JNI `FindClass` that resolves against the *thread's*
+  class loader — an attached worker thread gets the SYSTEM class loader (the error
+  shows `DexPathList[... /system/lib64 ...]`), which can't see app classes. Fix:
+  perform `ensureInit()` (the `createHybridObject`) on the **JS thread** (in
+  `configure()`), which has the app class loader; fbjni caches the resolved
+  `jclass` globally, so later method calls from worker threads work (they only need
+  a `JNIEnv`, supplied by the `ThreadScope` guards). Only reproducible by RUNNING
+  the app. (Alternative: `ThreadScope::WithClassLoader`.)
 - **Emit `DISCONNECTED` on a failed connect**, else listeners stay stuck on
   `CONNECTING`. `connect()` delegates to `ensureConnected()` which emits
   CONNECTING→(CONNECTED | DISCONNECTED on throw).
@@ -77,7 +87,8 @@
 - iOS `package/Ecr17.podspec` globs `cpp/**/*.{hpp,cpp}` — new C++ auto-included.
 - C++20 on both; Android NDK provides POSIX sockets in libc (no extra link lib).
 - Include convention: cross-unit includes are subdir-qualified from the `../cpp`
-  root, e.g. `#include "Lcr/Lcr.hpp"`, `#include "Ecr17Client/Ecr17Client.hpp"`.
+  root, e.g. `#include "Lcr/Lcr.hpp"`, `#include "Ecr17Client/HybridEcr17Client.hpp"`
+  (the client impl file is named after its Nitro class — see Build wiring).
 
 ## ECR17 protocol facts (from docs/)
 - Status command code is lowercase `'s'` (0x73). Payment `'P'` request = 167 bytes.
@@ -151,7 +162,9 @@
 - **Verified Nitro C++ APIs** (compiled into the APK, use as-is):
   - `#include <NitroModules/HybridObjectRegistry.hpp>`;
     `auto o = HybridObjectRegistry::createHybridObject("Ecr17Transport");`
-    `auto t = std::static_pointer_cast<HybridEcr17TransportSpec>(o);`
+    `auto t = std::dynamic_pointer_cast<HybridEcr17TransportSpec>(o);` (NOT
+    static_pointer_cast — HybridObject is a virtual base; null-check `t`). Call
+    `createHybridObject` on the JS thread (app class loader) — see Runtime (Android).
   - `#include <NitroModules/ArrayBuffer.hpp>`; `ArrayBuffer::copy(const std::vector<uint8_t>&)`,
     `buf->data()` / `buf->size()`.
   - Transport spec uses `std::shared_ptr<ArrayBuffer>` (NOT std::vector) for send/onData.

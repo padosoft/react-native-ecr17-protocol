@@ -227,6 +227,13 @@ void HybridEcr17Client::configure(const Ecr17Config& config) {
     session_.reset();
     adapter_.reset();
     transport_.reset();
+    // Create the transport HybridObject NOW, on this (JS) thread. createHybridObject
+    // does a JNI FindClass for the Kotlin transport, which resolves only against the
+    // app class loader — and the JS thread has it. Doing it lazily on a Nitro worker
+    // thread (attached via ThreadScope) would use the system class loader and throw
+    // ClassNotFoundException. fbjni caches the resolved jclass globally, so later
+    // method calls from worker threads work (they only need a JNIEnv, see the guards).
+    ensureInit();
 }
 
 Ecr17Config HybridEcr17Client::configuration() { return config_; }
