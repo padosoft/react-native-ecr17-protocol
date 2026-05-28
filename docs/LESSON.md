@@ -53,6 +53,26 @@
   `jclass` globally, so later method calls from worker threads work (they only need
   a `JNIEnv`, supplied by the `ThreadScope` guards). Only reproducible by RUNNING
   the app. (Alternative: `ThreadScope::WithClassLoader`.)
+- **`ClassNotFoundException` for `com.margelo.nitro.core.ArrayBuffer` when a command
+  runs.** This is the SAME root cause as above but for a NitroModules *core* class,
+  not our transport. The generated transport bridge resolves `ArrayBuffer` LAZILY on
+  the worker thread inside `send()` (`JHybridEcr17TransportSpec::send` →
+  `JArrayBuffer::wrap` → `FindClass("com/margelo/nitro/core/ArrayBuffer")`). A plain
+  `facebook::jni::ThreadScope` only ATTACHES a JNIEnv — it does NOT install the app
+  class loader, so that `FindClass` still hits the SYSTEM loader
+  (`DexPathList[... /system/lib64 ...]`) → ClassNotFoundException. The PR#8 fix
+  (creating the transport on the JS thread) only cached OUR transport's jclass; it
+  doesn't help core classes looked up later on a worker thread. Fix: run ALL
+  worker-thread C++→Kotlin JNI work under **`facebook::jni::ThreadScope::WithClassLoader(std::function<void()>)`**,
+  which attaches the thread AND installs fbjni's cached app class loader for the
+  duration, so every `FindClass` inside (incl. NitroModules' ArrayBuffer) resolves
+  app classes. We wrap the bodies of `ensureConnected`/`runTransaction`/`runAckOnly`
+  with the `ECR17_RUN_ON_JVM_THREAD(body)` macro (`#ifdef __ANDROID__` →
+  `WithClassLoader`; no-op-inline on iOS). `WithClassLoader` takes a void lambda, so
+  the macro captures the return value in an outer local and any thrown exception via
+  `std::exception_ptr` (rethrown after the scope) to preserve the money-safety
+  try/catch semantics untouched. Replaces the old plain-`ThreadScope`
+  `ECR17_JNI_THREAD_GUARD`. Only reproducible by RUNNING the app — no build/CI catches it.
 - **Emit `DISCONNECTED` on a failed connect**, else listeners stay stuck on
   `CONNECTING`. `connect()` delegates to `ensureConnected()` which emits
   CONNECTING→(CONNECTED | DISCONNECTED on throw).
