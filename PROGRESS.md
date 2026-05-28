@@ -20,10 +20,16 @@ Target PR: to be opened against `main` once Phase 0 lands (or reuse a draft).
 - [x] Phase 8a — ts-checks CI (typecheck + nitrogen), checkout@v5  ✅ GREEN
 - [x] Phase 4 — HybridEcr17Client wiring + NativeTransportAdapter + sendAckOnly  ✅ written (cpp-tests 77/77; client/adapter verified only by Android build)
 - [x] Phase 5 — native Kotlin (HybridEcr17Transport.kt) + Swift (best-effort, no iOS CI)  ✅ written
-- [~] Phase 8b — native Android build CI (manual dispatch) — verifying Phase 4/5  ⏳ first run dispatched; expect to iterate on nitro include/registry/Kotlin errors
-- [ ] Phase 7 — README (Roadmap/Feature status ✅) + example hook  ⏳ IN PROGRESS (while Android builds)
-- [ ] Phase 6 — extra tests (mostly done inline per phase)
-- [ ] Phase 9 — distill LESSON into AGENTS.md/rules/skills
+- [x] Phase 8b — native Android build CI  ✅ GREEN on first real attempt (run 26562706306); client/adapter/Kotlin/Nitro all compiled+linked into APK
+- [x] Phase 7 — README (Roadmap/Feature status ✅, async API, events, hook)  ✅ DONE
+- [x] Phase 6 — tests done inline per phase (cpp-tests 77/77)  ✅
+- [x] Phase 9 — root AGENTS.md distilled from LESSON.md (workflow + nitro/build know-how)  ✅
+- Final confirming Android build dispatched after the Kotlin reconnect/disconnect fix (run 26564115692).
+
+### Remaining / handoff
+- iOS Swift transport: best-effort, NO macOS CI → verify with an iOS build (roadmap).
+- Tokenization (U) flow wiring; receipt streaming after result; auto-connect/keepAlive.
+- PR #4 is stacked on #3 (base fix/ecr17-spec-compliance); retarget to main when #3 merges.
 
 ### Native build iteration (Phase 8b)
 Trigger: `gh workflow run "Android build" --ref feat/ecr17-transport-and-commands`. ~15-20 min.
