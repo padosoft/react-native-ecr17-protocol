@@ -213,6 +213,8 @@ void Ecr17Session::drainReceipts() {
                     if (isReceipt(pkt->payload) && onReceiptLine_) {
                         onReceiptLine_(pkt->payload);
                     }
+                } else {
+                    sendControl(PacketCodec::NAK);  // request retransmit, like waitForResult
                 }
                 break;
             case PacketType::PROGRESS:
