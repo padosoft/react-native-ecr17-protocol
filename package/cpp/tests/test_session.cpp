@@ -172,8 +172,7 @@ TEST(Session, RecoversAndSucceedsAfterReconnect) {
     t.rearm();
     PacketCodec codec(LrcMode::STD);
     std::vector<uint8_t> ok = codec.encodeControl(PacketCodec::ACK);
-    ok.insert(ok.end(), codec.encodeApplication(kResultPayload).begin(),
-              codec.encodeApplication(kResultPayload).end());
+    append(ok, codec.encodeApplication(kResultPayload));
     t.enqueueResponse(ok);
 
     DecodedPacket result = session.exchange("123456780P...");

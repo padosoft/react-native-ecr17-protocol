@@ -33,6 +33,7 @@
 - [Protocol cheat-sheet](#-protocol-cheat-sheet)
 - [Architecture](#%EF%B8%8F-architecture)
 - [Testing](#-testing)
+- [Vibe-coding batteries included](#-vibe-coding-batteries-included)
 - [License](#-license)
 
 ## 🧭 What is ECR17?
@@ -87,6 +88,9 @@ for everyone, and now, for mobile, they are.
   bridge — a notoriously fiddly piece on Android, here done cleanly with no
   hand-written JNI.
 - ✅ **Heavily tested** — 83 C++ unit/flow/safety tests (LRC, codec, every builder, every parser, full session orchestration) run in CI.
+- 🤖 **Vibe-coding batteries included** — ships first-class AI-agent context
+  (`AGENTS.md`, `CLAUDE.md`, `docs/LESSON.md`, `PROGRESS.md`) so contributors
+  using AI assistants get accurate, instant project context. See [below](#-vibe-coding-batteries-included).
 
 ## 🛡️ Enterprise robustness & payment safety
 
@@ -290,6 +294,23 @@ ECR17_TERMINAL_HOST=192.168.1.50 ECR17_TERMINAL_PORT=1024 \
 ECR17_TERMINAL_ID=00000000 ECR17_LRC_MODE=std \
 ctest --test-dir build -R Integration --output-on-failure
 ```
+
+## 🤖 Vibe-coding batteries included
+
+Building on an undocumented payment protocol is exactly where AI assistants get
+things subtly wrong. This repo ships the context to prevent that, so an agent (or
+a new contributor) is productive and *safe* from minute one:
+
+- **[`AGENTS.md`](https://github.com/padosoft/react-native-ecr17-protocol/blob/main/AGENTS.md)** /
+  **[`CLAUDE.md`](https://github.com/padosoft/react-native-ecr17-protocol/blob/main/CLAUDE.md)** — project guide, the mandatory
+  per-phase workflow, CI strategy, and the **money-critical** rules (e.g. never
+  blindly retry a payment).
+- **`docs/LESSON.md`** — accumulated, verified engineering lessons (Nitro APIs,
+  C++↔Kotlin JNI, build traps, payment-safety) — the gotchas already solved.
+- **`PROGRESS.md`** — crash-safe resume state across sessions.
+
+The result: less hallucination, fewer footguns, and changes that respect the
+payment-safety invariants by default.
 
 ## 📄 License
 

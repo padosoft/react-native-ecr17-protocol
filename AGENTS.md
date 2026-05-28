@@ -41,6 +41,12 @@ to the next phase only once complete:
   Swift is best-effort.
 
 ## Hard-won rules (see docs/LESSON.md for the full list)
+- 💰 **Money-critical — never blindly retry a financial command.** This terminal
+  charges real cards. On a drop, reconnect the socket but do NOT re-send
+  payments/reversals/pre-auths (double-charge); recover via `sendLastResult()`
+  (command `G`). The decision is in `package/cpp/Session/RetryPolicy.hpp`, locked
+  by `test_retry_policy.cpp`. `Ecr17Session` resets its connection state per
+  transaction (`resetForNewTransaction`) so it's reusable across reconnects.
 - **No local C++/native toolchain** here; CI is the compiler. The unit target
   compiles only `Lcr/PacketCodec/Ecr17Protocol/Ecr17Response/Session` + tests —
   NOT `Ecr17Client`/adapter/native. Verify those via the Android build.
