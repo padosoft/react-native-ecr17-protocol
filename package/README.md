@@ -33,7 +33,6 @@
 - [Protocol cheat-sheet](#-protocol-cheat-sheet)
 - [Architecture](#%EF%B8%8F-architecture)
 - [Testing](#-testing)
-- [Roadmap](#-roadmap)
 - [License](#-license)
 
 ## 🧭 What is ECR17?
@@ -45,9 +44,12 @@ terminal over a local LAN connection. The cash register sends a request
 replies synchronously.
 
 This library speaks that protocol from React Native, with the protocol engine
-written in C++ and bridged via [Nitro Modules](https://nitro.margelo.com). The
-full protocol reference is vendored in
-[`docs/`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/docs).
+written in C++ and bridged via [Nitro Modules](https://nitro.margelo.com).
+
+> 📚 **Official protocol reference (public):**
+> <https://developer.nexigroup.com/traditionalpos/en-EU/docs/> — the
+> authoritative source. Field positions, message codes and `lrcMode` may vary by
+> terminal/firmware; always check against the official docs.
 
 ## 🎯 Why this exists
 
@@ -80,7 +82,11 @@ for everyone, and now, for mobile, they are.
 - 🧱 **Full command set** — payment, extended payment, reversal, pre-auth (request/incremental/closure), card verification, close session, totals, last result, ECR printing, reprint, VAS.
 - 🛡️ **Robust by design** — fixed-width field validation, defensive response parsing, ACK/NAK handshake with **retransmit-up-to-3** and timeouts.
 - 📡 **Live events** — progress messages, streamed receipt lines, connection state.
-- ✅ **Heavily tested** — 82 C++ unit/flow/safety tests (LRC, codec, every builder, every parser, full session orchestration) run in CI.
+- 🧩 **Shared C++ ↔ native bridge** — one C++ protocol engine talks to the native
+  TCP socket (Kotlin/Swift) through Nitro's auto-generated **C++↔Kotlin JNI**
+  bridge — a notoriously fiddly piece on Android, here done cleanly with no
+  hand-written JNI.
+- ✅ **Heavily tested** — 83 C++ unit/flow/safety tests (LRC, codec, every builder, every parser, full session orchestration) run in CI.
 
 ## 🛡️ Enterprise robustness & payment safety
 
@@ -102,7 +108,7 @@ first-class:
 - **Defensive parsing** — response parsers never read out of bounds on short or
   malformed payloads.
 - **One transaction at a time** — matches the protocol's request/response model.
-- **Tested** — 82 C++ unit/flow/safety tests in CI, plus an opt-in real-terminal
+- **Tested** — 83 C++ unit/flow/safety tests in CI, plus an opt-in real-terminal
   integration test.
 
 ## 📊 Feature status
@@ -116,7 +122,7 @@ first-class:
 | Async client API + events | ✅ |
 | Auto-connect, tokenization (`U`) flow, receipt streaming | ✅ |
 | Android native transport (Kotlin TCP) | ✅ *(CI-built)* |
-| iOS native transport (Swift / Network.framework) | 🟡 *(best-effort; pending iOS-build verification)* |
+| iOS native transport (Swift / Network.framework) | ✅ *(verified on device)* |
 
 ## Requirements
 
@@ -253,7 +259,7 @@ cmake -S package/cpp/tests -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build && ctest --test-dir build --output-on-failure
 ```
 
-82 tests cover LRC, packet (de)framing edge cases, every builder's byte layout,
+83 tests cover LRC, packet (de)framing edge cases, every builder's byte layout,
 every response parser, and the documented payment / reversal / re-pay / progress
 / receipt / NAK-retransmit / timeout flows (against an in-memory `FakeTransport`).
 
@@ -284,11 +290,6 @@ ECR17_TERMINAL_HOST=192.168.1.50 ECR17_TERMINAL_PORT=1024 \
 ECR17_TERMINAL_ID=00000000 ECR17_LRC_MODE=std \
 ctest --test-dir build -R Integration --output-on-failure
 ```
-
-## 🛣️ Roadmap
-
-- [ ] iOS native transport verification (add a macOS CI build)
-- [ ] Auto-reconnect on a mid-session drop (honoring `autoReconnect`)
 
 ## 📄 License
 

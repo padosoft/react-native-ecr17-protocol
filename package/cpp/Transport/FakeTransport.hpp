@@ -52,6 +52,12 @@ class FakeTransport : public Transport {
     // Make the next application-request send drop the connection instead of replying.
     void disconnectOnNextRequest() { disconnectOnRequest_ = true; }
 
+    // Simulate a successful reconnect: clear the drop flag and mark connected.
+    void rearm() {
+        disconnectOnRequest_ = false;
+        connected_ = true;
+    }
+
     // Deliver bytes immediately as if received from the terminal.
     void pushIncoming(const std::vector<uint8_t>& bytes) {
         if (dataCallback_) {

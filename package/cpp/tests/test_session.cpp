@@ -157,6 +157,30 @@ TEST(Session, DisconnectDuringExchangeThrows) {
     EXPECT_THROW(session.exchange("123456780P..."), std::runtime_error);
 }
 
+// Scenario: the connection drops mid-exchange, then the client reconnects and
+// retries (the auto-reconnect path for safe commands). The session must recover
+// — it must NOT stay stuck in the disconnected state after a drop.
+TEST(Session, RecoversAndSucceedsAfterReconnect) {
+    FakeTransport t;
+    t.disconnectOnNextRequest();
+    Ecr17Session session(t, fastConfig());
+
+    // First attempt drops.
+    EXPECT_THROW(session.exchange("123456780P..."), std::runtime_error);
+
+    // Client reconnects the transport and the next transaction must work.
+    t.rearm();
+    PacketCodec codec(LrcMode::STD);
+    std::vector<uint8_t> ok = codec.encodeControl(PacketCodec::ACK);
+    ok.insert(ok.end(), codec.encodeApplication(kResultPayload).begin(),
+              codec.encodeApplication(kResultPayload).end());
+    t.enqueueResponse(ok);
+
+    DecodedPacket result = session.exchange("123456780P...");
+    EXPECT_EQ(result.type, PacketType::APPLICATION);
+    EXPECT_EQ(result.payload, kResultPayload);
+}
+
 TEST(Session, SendAckOnlyReturnsOnAck) {
     FakeTransport t;
     PacketCodec codec(LrcMode::STD);

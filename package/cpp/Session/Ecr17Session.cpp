@@ -102,7 +102,18 @@ bool Ecr17Session::isReceipt(const std::string& payload) {
     return payload.size() >= 10 && payload[9] == 'S';
 }
 
+void Ecr17Session::resetForNewTransaction() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    disconnected_ = false;
+    rxBuffer_.clear();
+}
+
 void Ecr17Session::sendAckOnly(const std::string& requestPayload) {
+    resetForNewTransaction();
+    ackHandshake(requestPayload);
+}
+
+void Ecr17Session::ackHandshake(const std::string& requestPayload) {
     const std::vector<uint8_t> requestFrame = codec_.encodeApplication(requestPayload);
 
     transport_.send(requestFrame);
@@ -146,14 +157,16 @@ void Ecr17Session::sendAckOnly(const std::string& requestPayload) {
 }
 
 DecodedPacket Ecr17Session::exchange(const std::string& requestPayload) {
-    sendAckOnly(requestPayload);  // send + physical ACK handshake (with retransmission)
+    resetForNewTransaction();     // start clean (reusable across reconnects)
+    ackHandshake(requestPayload);  // send + physical ACK handshake (with retransmission)
     return waitForResult();
 }
 
 DecodedPacket Ecr17Session::exchangeWithAdditionalData(const std::string& requestPayload,
                                                        const std::string& additionalPayload) {
-    sendAckOnly(requestPayload);     // main request -> ACK
-    sendAckOnly(additionalPayload);  // 'U' additional-data message -> ACK
+    resetForNewTransaction();
+    ackHandshake(requestPayload);     // main request -> ACK
+    ackHandshake(additionalPayload);  // 'U' additional-data message -> ACK
     return waitForResult();
 }
 

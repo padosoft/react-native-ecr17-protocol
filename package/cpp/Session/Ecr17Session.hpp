@@ -60,6 +60,12 @@ class Ecr17Session {
    private:
     void onData(const std::vector<uint8_t>& data);
     void onDisconnect();
+    // Clears stale RX bytes and the disconnected flag so the session is reusable
+    // across reconnects (a new transaction starts from a clean state).
+    void resetForNewTransaction();
+    // Sends a request and completes the physical ACK handshake (with
+    // retransmission). Does NOT reset state — callers reset once per transaction.
+    void ackHandshake(const std::string& requestPayload);
     // Waits for the application result after the ACK handshake, forwarding
     // progress (SOH) and receipt ('S') frames, NAKing invalid-LRC frames.
     DecodedPacket waitForResult();

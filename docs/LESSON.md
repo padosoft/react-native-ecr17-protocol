@@ -120,4 +120,16 @@
 - **Name-clash trap**: parser structs in our namespace must NOT reuse a
   Nitro-generated struct name (had to rename our `CurrencyExchange` → `DccInfo`,
   since the generated `CurrencyExchange` is in the same `margelo::nitro::ecr17`).
-- iOS: no macOS CI runner → Swift transport is best-effort/unverified.
+- iOS: Swift transport verified on device by the dev (no macOS CI runner).
+- **Bug found by a user question (auto-reconnect):** `Ecr17Session::disconnected_`
+  was set on a drop and NEVER reset, so after the client reconnected the transport
+  the next `exchange()` threw "disconnected" immediately → auto-reconnect didn't
+  actually recover. Fix: `resetForNewTransaction()` (clear `disconnected_` +
+  `rxBuffer_`) at the start of every exchange/sendAckOnly; the session is now
+  reusable across reconnects. Regression test: `Session.RecoversAndSucceedsAfterReconnect`
+  (FakeTransport `disconnectOnNextRequest()` then `rearm()`).
+- **Legal:** public web docs are NOT free to republish; attribution ≠ license,
+  quotation exceptions cover short excerpts only. The full Nexi doc was untracked
+  (`git rm --cached` + .gitignore), kept local/private; README links the official
+  public URL. NOTE: it's still in git history (PR #3 merged) — a history rewrite
+  (git filter-repo) is needed if full removal is required.
