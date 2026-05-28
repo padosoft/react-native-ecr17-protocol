@@ -9,7 +9,7 @@ import kotlin.concurrent.thread
 /**
  * Android (Kotlin) implementation of the ECR17 LAN transport. Plain TCP socket
  * with a background reader thread that forwards received bytes to the C++ core
- * via the [onData] callback. Nitro generates the C++<->Kotlin JNI bridge for this
+ * via the [onDataCallback]. Nitro generates the C++<->Kotlin JNI bridge for this
  * HybridObject, so no manual JNI is needed.
  */
 class HybridEcr17Transport : HybridEcr17TransportSpec() {
@@ -18,11 +18,19 @@ class HybridEcr17Transport : HybridEcr17TransportSpec() {
 
   @Volatile private var running = false
 
+  // True while a caller-initiated disconnect is in progress, so the reader's
+  // finally block does not emit a spurious onDisconnect for an intentional close.
+  @Volatile private var intentionalDisconnect = false
+
   private var onDataCallback: ((ArrayBuffer) -> Unit)? = null
   private var onDisconnectCallback: (() -> Unit)? = null
 
   override fun connect(host: String, port: Double, timeoutMs: Double): Promise<Unit> {
     return Promise.parallel {
+      // Tear down any previous connection (and join its reader) before reconnecting.
+      closeCurrent()
+      intentionalDisconnect = false
+
       val s = Socket()
       s.tcpNoDelay = true
       s.connect(InetSocketAddress(host, port.toInt()), timeoutMs.toInt())
@@ -47,15 +55,20 @@ class HybridEcr17Transport : HybridEcr17TransportSpec() {
             }
           }
         } catch (_: Throwable) {
-          // socket closed or read error -> treated as disconnect below
+          // socket closed or read error
         } finally {
           running = false
-          onDisconnectCallback?.invoke()
+          // Only signal disconnect for unexpected drops, not caller-initiated closes.
+          if (!intentionalDisconnect) {
+            onDisconnectCallback?.invoke()
+          }
         }
       }
   }
 
-  override fun disconnect() {
+  /** Closes the current socket and joins its reader thread (intentional close). */
+  private fun closeCurrent() {
+    intentionalDisconnect = true
     running = false
     try {
       socket?.close()
@@ -63,6 +76,18 @@ class HybridEcr17Transport : HybridEcr17TransportSpec() {
       // ignore
     }
     socket = null
+    readerThread?.let { t ->
+      try {
+        t.join(1000)
+      } catch (_: Throwable) {
+        // ignore
+      }
+    }
+    readerThread = null
+  }
+
+  override fun disconnect() {
+    closeCurrent()
   }
 
   override fun isConnected(): Boolean {

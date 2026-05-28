@@ -100,3 +100,24 @@
   tsconfig/biome `extends` it).
 - The example app is **Expo managed** (RN 0.85, expo ~56, no committed `android/`):
   a native CI build needs `expo prebuild` then gradle/xcode — heavy, best-effort.
+- **Android native build pipeline WORKS** (verified green): checkout → setup-java 17 →
+  setup-bun → install(strip @padosoft) → `bunx nitrogen` → `bunx expo prebuild -p android` →
+  android-actions/setup-android → `sdkmanager "ndk;27.1.12297006" "cmake;3.22.1"` →
+  `./gradlew assembleDebug` (working-dir example/android). ~15-20 min. Manual dispatch only.
+- **Verified Nitro C++ APIs** (compiled into the APK, use as-is):
+  - `#include <NitroModules/HybridObjectRegistry.hpp>`;
+    `auto o = HybridObjectRegistry::createHybridObject("Ecr17Transport");`
+    `auto t = std::static_pointer_cast<HybridEcr17TransportSpec>(o);`
+  - `#include <NitroModules/ArrayBuffer.hpp>`; `ArrayBuffer::copy(const std::vector<uint8_t>&)`,
+    `buf->data()` / `buf->size()`.
+  - Transport spec uses `std::shared_ptr<ArrayBuffer>` (NOT std::vector) for send/onData.
+  - `Promise<T>::async([]() -> T {...})` (returns T) — confirmed compiling.
+- **Verified Nitro Kotlin APIs**: `class X : HybridEcr17TransportSpec()`;
+  `Promise.parallel { ... }` (blocking on a thread) / `Promise.async { suspend }`;
+  `ArrayBuffer.copy(ByteArray)`, `arrayBuffer.toByteArray()`. Impl goes in
+  `package/android/src/main/java/com/margelo/nitro/ecr17/`. Nitro auto-generates
+  the C++↔Kotlin JNI bridge — NO manual JNI needed (corasan ref was for non-nitro).
+- **Name-clash trap**: parser structs in our namespace must NOT reuse a
+  Nitro-generated struct name (had to rename our `CurrencyExchange` → `DccInfo`,
+  since the generated `CurrencyExchange` is in the same `margelo::nitro::ecr17`).
+- iOS: no macOS CI runner → Swift transport is best-effort/unverified.
