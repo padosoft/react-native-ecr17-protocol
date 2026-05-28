@@ -8,7 +8,7 @@ const CONFIG_FILE = 'ecr17-config.json';
 
 export const DEFAULT_CONFIG: Ecr17Config = {
   host: '',
-  port: 1024,
+  port: 10000,
   terminalId: '',
   cashRegisterId: '',
   lrcMode: 'std',

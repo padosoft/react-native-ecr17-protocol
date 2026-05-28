@@ -67,12 +67,16 @@
   which attaches the thread AND installs fbjni's cached app class loader for the
   duration, so every `FindClass` inside (incl. NitroModules' ArrayBuffer) resolves
   app classes. We wrap the bodies of `ensureConnected`/`runTransaction`/`runAckOnly`
-  with the `ECR17_RUN_ON_JVM_THREAD(body)` macro (`#ifdef __ANDROID__` →
-  `WithClassLoader`; no-op-inline on iOS). `WithClassLoader` takes a void lambda, so
-  the macro captures the return value in an outer local and any thrown exception via
-  `std::exception_ptr` (rethrown after the scope) to preserve the money-safety
-  try/catch semantics untouched. Replaces the old plain-`ThreadScope`
-  `ECR17_JNI_THREAD_GUARD`. Only reproducible by RUNNING the app — no build/CI catches it.
+  by passing a lambda to the `runOnJvmThread(fn)` template helper: on Android it runs
+  `fn` inside `WithClassLoader`; on iOS (no JVM) it just calls `fn()`. Since
+  `WithClassLoader` takes a `std::function<void()>`, on Android the helper captures
+  `fn`'s return value in a `std::optional` and any thrown exception via
+  `std::exception_ptr` (rethrown after the scope), so the caller's return-value and
+  money-safety try/catch semantics are unchanged. `fn` being a lambda means a
+  `return` inside it exits the lambda (not the caller) on both platforms — safe in
+  the value-returning `runTransaction`. Replaces the old plain-`ThreadScope`
+  `ECR17_JNI_THREAD_GUARD` (which only attached a JNIEnv, not the class loader).
+  Only reproducible by RUNNING the app — no build/CI catches it.
 - **Emit `DISCONNECTED` on a failed connect**, else listeners stay stuck on
   `CONNECTING`. `connect()` delegates to `ensureConnected()` which emits
   CONNECTING→(CONNECTED | DISCONNECTED on throw).

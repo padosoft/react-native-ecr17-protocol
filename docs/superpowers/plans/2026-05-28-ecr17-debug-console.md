@@ -190,7 +190,7 @@ export function useEcr17(config: Ecr17Config) {
 
 ### Task 3.1: Config persistence helper
 **Files:** Create `example/src/ecr17/storage.ts`
-- [ ] `loadConfig(): Promise<Ecr17Config>` (defaults if absent), `saveConfig(c)`, using a JSON file in `documentDirectory`. Defaults: `{ host:'', port:1024, terminalId:'', cashRegisterId:'', lrcMode:'std', keepAlive:true, autoReconnect:true, connectionTimeoutMs:5000, responseTimeoutMs:60000, ackTimeoutMs:2000, retryCount:3, retryDelayMs:200, receiptDrainMs:0, debug:true }`.
+- [ ] `loadConfig(): Promise<Ecr17Config>` (defaults if absent), `saveConfig(c)`, using a JSON file in `documentDirectory`. Defaults: `{ host:'', port:10000, terminalId:'', cashRegisterId:'', lrcMode:'std', keepAlive:true, autoReconnect:true, connectionTimeoutMs:5000, responseTimeoutMs:60000, ackTimeoutMs:2000, retryCount:3, retryDelayMs:200, receiptDrainMs:0, debug:true }`.
 - [ ] Verify: `tsc`.
 
 ### Task 3.2: Home screen

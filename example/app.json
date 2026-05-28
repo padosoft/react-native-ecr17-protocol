@@ -8,15 +8,9 @@
 		"scheme": "ecr17",
 		"userInterfaceStyle": "automatic",
 		"ios": {
-			"icon": "./assets/expo.icon"
+			"bundleIdentifier": "com.padosoft.ecr17"
 		},
 		"android": {
-			"adaptiveIcon": {
-				"backgroundColor": "#E6F4FE",
-				"foregroundImage": "./assets/images/android-icon-foreground.png",
-				"backgroundImage": "./assets/images/android-icon-background.png",
-				"monochromeImage": "./assets/images/android-icon-monochrome.png"
-			},
 			"package": "com.padosoft.ecr17"
 		},
 		"plugins": [

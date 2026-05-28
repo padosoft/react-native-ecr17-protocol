@@ -31,7 +31,7 @@ export function ConfigForm({ value, onChange }: Props) {
       {open && (
         <View style={styles.body}>
           <TextField label="Host" value={value.host} onChange={(v) => set('host', v)} placeholder="192.168.1.50" />
-          <NumberField label="Port" value={value.port ?? 1024} onChange={(v) => set('port', v)} />
+          <NumberField label="Port" value={value.port ?? 10000} onChange={(v) => set('port', v)} />
           <TextField label="Terminal ID" value={value.terminalId} onChange={(v) => set('terminalId', v)} />
           <TextField
             label="Cash register ID"

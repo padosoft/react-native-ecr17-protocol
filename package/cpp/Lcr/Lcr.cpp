@@ -24,7 +24,7 @@ uint8_t Lrc::compute(const std::vector<uint8_t>& payload, LrcMode mode) {
 
     switch (mode) {
         case LrcMode::STX:
-        case LrcMode::NOEXT:
+        case LrcMode::STD:
             lrc ^= ETX;
             break;
 

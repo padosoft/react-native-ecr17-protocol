@@ -4,7 +4,7 @@
 // against a real Nexi terminal on your LAN:
 //
 //   ECR17_TERMINAL_HOST=192.168.1.50 \
-//   ECR17_TERMINAL_PORT=1024 \
+//   ECR17_TERMINAL_PORT=10000 \
 //   ECR17_TERMINAL_ID=00000000 \
 //   ECR17_LRC_MODE=std \
 //   ctest --test-dir build --output-on-failure -R Integration
@@ -45,7 +45,7 @@ TEST(Integration, RealTerminalStatus) {
     }
     const char* portEnv = std::getenv("ECR17_TERMINAL_PORT");
     const char* idEnv = std::getenv("ECR17_TERMINAL_ID");
-    const int port = portEnv ? std::atoi(portEnv) : 1024;
+    const int port = portEnv ? std::atoi(portEnv) : 10000;
     const std::string terminalId = idEnv ? idEnv : "00000000";
 
     PosixTcpTransport transport(host, port);
