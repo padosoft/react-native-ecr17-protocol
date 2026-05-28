@@ -38,9 +38,18 @@ export function CommandParamsSheet({ command, onSubmit, onClose }: Props) {
   }
 
   const set = (name: string, v: unknown) => setParams((p) => ({ ...p, [name]: v }));
-  const missingRequired = command.fields.some(
-    (f) => f.required && (params[f.name] === '' || params[f.name] === undefined)
-  );
+  const missingRequired = command.fields.some((f) => {
+    if (!f.required) {
+      return false;
+    }
+    const v = params[f.name];
+    // A required amount must be a positive number — guard against submitting a
+    // zero-amount financial transaction with the default 0.
+    if (f.kind === 'money' || f.kind === 'number') {
+      return typeof v !== 'number' || v <= 0;
+    }
+    return v === '' || v === undefined;
+  });
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>

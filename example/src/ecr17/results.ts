@@ -30,6 +30,11 @@ function maskPan(pan: string): string {
 }
 
 function maskSensitive(value: unknown): unknown {
+  if (value instanceof Date) {
+    // Preserve dates (e.g. PosStatusResponse.terminalDateTime) — a plain object
+    // copy would serialize them as `{}`.
+    return value.toISOString();
+  }
   if (Array.isArray(value)) {
     return value.map(maskSensitive);
   }
