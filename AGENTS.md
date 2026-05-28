@@ -22,7 +22,12 @@ A task/phase is done ONLY after BOTH loops below pass. In auto mode, proceed to
 the next phase only once complete.
 
 ### Local loop (per phase, before pushing)
-1. **Local tests green** — C++: `cmake -S package/cpp/tests -B build && cmake --build build && ctest --test-dir build` (a local g++ is now available, see "local toolchain" below; a throwaway `cl`/`g++` harness can also exercise the real `.cpp` when cmake/gtest aren't set up). TS: `cd package && bunx tsc --noEmit -p tsconfig.ci.json`.
+1. **Local tests green** — C++: no local cmake/gtest here, so the local check is a
+   throwaway **g++ harness** that compiles the unit-testable core
+   (`Lcr/PacketCodec/Ecr17Protocol/Ecr17Response/Session`) and asserts the changed
+   behavior — `g++ -std=c++20 -I package/cpp -I package/cpp/tests/stubs <harness>.cpp <core>.cpp`
+   (see "local toolchain" below). The full GoogleTest suite (`cmake -S package/cpp/tests …`)
+   runs in **CI**, not locally. TS: `cd package && bunx tsc --noEmit -p tsconfig.ci.json`.
 2. **Local Copilot review** — `copilot --autopilot --yolo -p "/review …"`. Use a
    **focused** prompt ("read ONLY file X, check N things, answer in <=K lines") —
    feeding a whole diff times out. Copilot **edits in --yolo mode** and its
@@ -32,6 +37,11 @@ the next phase only once complete.
 
 ### Remote loop (REQUIRED before a task/PR is considered done)
 4. **Push**, then **CI green** (`cpp-tests` + `ts-checks`); else fix → local loop.
+   **If the PR touches native code** (`package/android/**`, `package/ios/**`, the
+   Nitro-integrated C++ in `Ecr17Client`/adapter, `CMakeLists.txt`, `*.podspec`,
+   `nitro.json`, autolinking/`react-native.config.js`), also dispatch the manual
+   **`android-build`** job (`gh workflow run "Android build" --ref <branch>`) and
+   require it green — it's the ONLY CI that compiles/links the native + Nitro code.
 5. **Remote PR review** — ensure the PR is reviewed by the remote bots
    (`copilot-pull-request-reviewer[bot]` + `chatgpt-codex-connector[bot]`);
    re-request review after each push (e.g. `gh pr edit <n> --add-reviewer copilot`).
