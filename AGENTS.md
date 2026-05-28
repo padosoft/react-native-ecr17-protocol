@@ -93,6 +93,24 @@ still has open, valid reviewer comments.
   via `HybridObjectRegistry::createHybridObject(name)`. Kotlin HybridObjects get
   an auto-generated JNI bridge (no manual JNI); use `Promise.parallel{}` for
   blocking work, `ArrayBuffer.copy(ByteArray)/toByteArray()`.
+- **Nitro Android native integration (JNI) — gotchas only reproducible by RUNNING
+  the app, not by the build** (full detail in docs/LESSON.md):
+  1. The C++ impl file MUST be named after `implementationClassName` from
+     `nitro.json` (`HybridEcr17Client.{hpp,cpp}`) and its dir be in CMake
+     `include_directories` — the generated `*OnLoad.cpp` does a flat
+     `#include "HybridEcr17Client.hpp"`.
+  2. Downcast `createHybridObject` results with `dynamic_pointer_cast` (HybridObject
+     is a *virtual* base); null-check.
+  3. Autolinking + `.so` load needs `package/react-native.config.js` (declares
+     android/ios) so RN registers `Ecr17Package`, whose `companion init` runs
+     `System.loadLibrary`.
+  4. Commands run on Nitro worker threads → attach to the JVM with fbjni
+     `ThreadScope` (`#ifdef __ANDROID__`) before any C++→Kotlin call, else "Unable
+     to retrieve jni environment".
+  5. `createHybridObject` (JNI `FindClass`) must run on the **JS thread** (do it in
+     `configure()`), because attached worker threads use the system class loader →
+     `ClassNotFoundException`. fbjni caches the jclass so later worker-thread method
+     calls work.
 - Don't reuse a Nitro-generated struct name in our namespace (clash) — e.g. our
   parser DCC struct is `DccInfo`, not `CurrencyExchange`.
 - ECR17: status code is lowercase `'s'`; payment `'P'` = 167 bytes; progress

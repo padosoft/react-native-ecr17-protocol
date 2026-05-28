@@ -87,7 +87,8 @@
 - iOS `package/Ecr17.podspec` globs `cpp/**/*.{hpp,cpp}` — new C++ auto-included.
 - C++20 on both; Android NDK provides POSIX sockets in libc (no extra link lib).
 - Include convention: cross-unit includes are subdir-qualified from the `../cpp`
-  root, e.g. `#include "Lcr/Lcr.hpp"`, `#include "Ecr17Client/Ecr17Client.hpp"`.
+  root, e.g. `#include "Lcr/Lcr.hpp"`, `#include "Ecr17Client/HybridEcr17Client.hpp"`
+  (the client impl file is named after its Nitro class — see Build wiring).
 
 ## ECR17 protocol facts (from docs/)
 - Status command code is lowercase `'s'` (0x73). Payment `'P'` request = 167 bytes.
@@ -161,7 +162,9 @@
 - **Verified Nitro C++ APIs** (compiled into the APK, use as-is):
   - `#include <NitroModules/HybridObjectRegistry.hpp>`;
     `auto o = HybridObjectRegistry::createHybridObject("Ecr17Transport");`
-    `auto t = std::static_pointer_cast<HybridEcr17TransportSpec>(o);`
+    `auto t = std::dynamic_pointer_cast<HybridEcr17TransportSpec>(o);` (NOT
+    static_pointer_cast — HybridObject is a virtual base; null-check `t`). Call
+    `createHybridObject` on the JS thread (app class loader) — see Runtime (Android).
   - `#include <NitroModules/ArrayBuffer.hpp>`; `ArrayBuffer::copy(const std::vector<uint8_t>&)`,
     `buf->data()` / `buf->size()`.
   - Transport spec uses `std::shared_ptr<ArrayBuffer>` (NOT std::vector) for send/onData.
