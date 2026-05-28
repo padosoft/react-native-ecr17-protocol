@@ -34,7 +34,32 @@
 - Spec virtuals are pure (`= 0`) in `HybridXxxSpec`; the impl class overrides them.
   Methods registered in `loadHybridMethods()` via `registerHybridMethod`.
 
+## Runtime (Android)
+- **Calling a Kotlin HybridObject from a C++ `Promise::async` worker thread fails
+  with "Unable to retrieve jni environment. Is the thread attached?".** Nitro's
+  C++ thread-pool worker threads are NOT attached to the JVM, so the generated
+  C++→Kotlin JNI bridge can't get a `JNIEnv`. Fix: attach with fbjni
+  `facebook::jni::ThreadScope` (RAII) for the scope of the transport calls —
+  guarded by `#ifdef __ANDROID__` (no-op on iOS). We attach in `ensureConnected`,
+  `runTransaction`, `runAckOnly` (the worker-thread paths that hit the transport).
+  Only reproducible by RUNNING the app — not by the build.
+- **Emit `DISCONNECTED` on a failed connect**, else listeners stay stuck on
+  `CONNECTING`. `connect()` delegates to `ensureConnected()` which emits
+  CONNECTING→(CONNECTED | DISCONNECTED on throw).
+
 ## Build wiring
+- **Nitro C++ HybridObject impl header MUST be named after `implementationClassName`
+  and be on the include path.** nitrogen's generated `Ecr17OnLoad.cpp` does a flat
+  `#include "HybridEcr17Client.hpp"` (the impl class name from `nitro.json`). So the
+  impl file must be `HybridEcr17Client.{hpp,cpp}` (not `Ecr17Client.*`) AND its dir
+  must be in `CMakeLists.txt` `include_directories` (we added `../cpp/Ecr17Client`).
+  This only surfaces when the example app actually depends on the package — the
+  `android-build` CI compiles the package's C++ ONLY when a consumer autolinks it;
+  before the example took the dependency, `HybridEcr17Client`/adapter were never
+  truly compiled, hiding the bug. cpp-tests don't cover the client either.
+- **Downcasting a `createHybridObject` result needs `dynamic_pointer_cast`**, not
+  `static_pointer_cast`: `margelo::nitro::HybridObject` is a *virtual* base, so a
+  static downcast is ill-formed. Null-check the result.
 - **Android `.so` loading + autolinking**: a Nitro module still needs an
   autolinked `ReactPackage` so its native lib loads at runtime. `Ecr17Package`
   (`com.ecr17`, a `BaseReactPackage` returning no modules) loads `libEcr17.so`

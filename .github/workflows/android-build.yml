@@ -57,3 +57,11 @@ jobs:
       - name: Gradle assembleDebug
         working-directory: example/android
         run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecr17-example-debug-apk
+          path: example/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14

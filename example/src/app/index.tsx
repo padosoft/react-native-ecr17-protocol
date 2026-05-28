@@ -1,98 +1,137 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, Text } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { Ecr17Config } from 'react-native-ecr17';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BusyOverlay } from '@/components/ecr17/BusyOverlay';
+import { CommandPalette } from '@/components/ecr17/CommandPalette';
+import { CommandParamsSheet } from '@/components/ecr17/CommandParamsSheet';
+import { ConfigForm } from '@/components/ecr17/ConfigForm';
+import { ConnectionBar } from '@/components/ecr17/ConnectionBar';
+import { LogConsole } from '@/components/ecr17/LogConsole';
+import type { CommandDef } from '@/ecr17/commands';
+import { DEFAULT_CONFIG, loadConfig, saveConfig } from '@/ecr17/storage';
+import { colors, font, radius, space } from '@/ecr17/theme';
+import { useEcr17, type RunResult } from '@/ecr17/useEcr17';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
+interface Toast {
+  text: string;
+  color: string;
 }
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+export default function DebugConsoleScreen() {
+  const [config, setConfig] = useState<Ecr17Config | null>(null);
+  const [sheetCmd, setSheetCmd] = useState<CommandDef | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+  useEffect(() => {
+    loadConfig().then(setConfig);
+  }, []);
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+  const { connectionState, busy, lastProgress, connect, disconnect, run } = useEcr17(
+    config ?? DEFAULT_CONFIG
+  );
 
-        {Platform.OS === 'web' && <WebBadge />}
+  const onChangeConfig = useCallback((next: Ecr17Config) => {
+    setConfig(next);
+    saveConfig(next);
+  }, []);
+
+  const showToast = useCallback((r: RunResult) => {
+    if (r.status === 'error') {
+      setToast({ text: 'Error — see log', color: colors.error });
+    } else if (r.status === 'ko') {
+      const res = r.result as { outcome?: string; responseId?: string } | undefined;
+      const label = res?.outcome ?? (res?.responseId != null ? `vas ${res.responseId}` : 'ko');
+      setToast({ text: `KO (${label})`, color: colors.ko });
+    } else {
+      setToast({ text: 'OK', color: colors.ok });
+    }
+    setTimeout(() => setToast(null), 2500);
+  }, []);
+
+  const doRun = useCallback(
+    async (key: string, params: Record<string, unknown>) => {
+      const result = await run(key, params);
+      showToast(result);
+    },
+    [run, showToast]
+  );
+
+  const onPick = useCallback(
+    (cmd: CommandDef) => {
+      if (cmd.fields.length === 0) {
+        void doRun(cmd.key, {});
+      } else {
+        setSheetCmd(cmd);
+      }
+    },
+    [doRun]
+  );
+
+  if (!config) {
+    return (
+      <SafeAreaView style={styles.screen} edges={['top']}>
+        <Text style={styles.loading}>Loading…</Text>
       </SafeAreaView>
-    </ThemedView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.screen} edges={['top']}>
+      <Text style={styles.heading}>ECR17 Debug Console</Text>
+      <ConnectionBar
+        state={connectionState}
+        busy={busy}
+        onConnect={() => void connect()}
+        onDisconnect={disconnect}
+      />
+      <ScrollView style={styles.top} keyboardShouldPersistTaps="handled">
+        <ConfigForm value={config} onChange={onChangeConfig} />
+        <CommandPalette onPick={onPick} disabled={busy} />
+      </ScrollView>
+      <LogConsole />
+
+      <CommandParamsSheet
+        command={sheetCmd}
+        onSubmit={(key, params) => void doRun(key, params)}
+        onClose={() => setSheetCmd(null)}
+      />
+      <BusyOverlay visible={busy} progress={lastProgress} />
+
+      {toast && (
+        <Animated.View
+          entering={FadeIn}
+          exiting={FadeOut}
+          style={[styles.toast, { backgroundColor: toast.color }]}
+        >
+          <Text style={styles.toastText}>{toast.text}</Text>
+        </Animated.View>
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+  screen: { flex: 1, backgroundColor: colors.bg },
+  heading: {
+    color: colors.text,
+    fontWeight: '800',
+    fontSize: font.size.lg,
+    paddingHorizontal: space.lg,
+    paddingTop: space.sm,
+    paddingBottom: space.xs,
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+  loading: { color: colors.textDim, textAlign: 'center', marginTop: space.xl },
+  top: { maxHeight: '45%' },
+  toast: {
+    position: 'absolute',
+    bottom: space.xl,
+    alignSelf: 'center',
+    paddingHorizontal: space.xl,
+    paddingVertical: space.md,
+    borderRadius: radius.lg,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
+  toastText: { color: colors.accentText, fontWeight: '700', fontSize: font.size.md },
 });

@@ -1,4 +1,4 @@
-#include "Ecr17Client.hpp"
+#include "HybridEcr17Client.hpp"
 
 #include <NitroModules/HybridObjectRegistry.hpp>
 
@@ -12,6 +12,18 @@
 #include "Ecr17Protocol/Ecr17Protocol.hpp"
 #include "Ecr17Response/Ecr17Response.hpp"
 #include "Session/RetryPolicy.hpp"
+
+// Commands run on Nitro's C++ thread pool. On Android, those worker threads are
+// NOT attached to the JVM, so calling the Kotlin transport through the generated
+// JNI bridge fails with "Unable to retrieve jni environment. Is the thread
+// attached?". ECR17_JNI_THREAD_GUARD attaches the current thread for its scope
+// (RAII) on Android; it's a no-op on iOS (no JVM).
+#ifdef __ANDROID__
+#include <fbjni/fbjni.h>
+#define ECR17_JNI_THREAD_GUARD ::facebook::jni::ThreadScope __ecr17JniScope
+#else
+#define ECR17_JNI_THREAD_GUARD ((void)0)
+#endif
 
 namespace margelo::nitro::ecr17 {
 
@@ -224,7 +236,12 @@ void HybridEcr17Client::ensureInit() {
         return;
     }
     auto obj = HybridObjectRegistry::createHybridObject("Ecr17Transport");
-    transport_ = std::static_pointer_cast<HybridEcr17TransportSpec>(obj);
+    // HybridObject is a *virtual* base, so static_pointer_cast can't downcast
+    // from it — must use dynamic_pointer_cast.
+    transport_ = std::dynamic_pointer_cast<HybridEcr17TransportSpec>(obj);
+    if (!transport_) {
+        throw std::runtime_error("ECR17: registry returned an incompatible Ecr17Transport object");
+    }
     adapter_ = std::make_shared<NativeTransportAdapter>(transport_);
 
     SessionConfig sc;
@@ -245,6 +262,7 @@ void HybridEcr17Client::ensureInit() {
 }
 
 void HybridEcr17Client::ensureConnected() {
+    ECR17_JNI_THREAD_GUARD;  // attach this worker thread for the transport JNI calls
     ensureInit();
     if (transport_->isConnected()) {
         return;
@@ -254,7 +272,13 @@ void HybridEcr17Client::ensureConnected() {
     if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::CONNECTING);
     const double port = config_.port.value_or(1024);
     const double timeout = config_.connectionTimeoutMs.value_or(5000);
-    transport_->connect(config_.host, port, timeout)->await().get();
+    try {
+        transport_->connect(config_.host, port, timeout)->await().get();
+    } catch (...) {
+        // Don't leave listeners stuck on CONNECTING when the connection fails.
+        if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::DISCONNECTED);
+        throw;
+    }
     if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::CONNECTED);
 }
 
@@ -265,6 +289,7 @@ std::string HybridEcr17Client::cashRegisterIdOr(const std::optional<std::string>
 DecodedPacket HybridEcr17Client::runTransaction(
     const std::string& mainPayload, const std::optional<TokenizationRequest>& tokenization,
     bool safeToRetry) {
+    ECR17_JNI_THREAD_GUARD;  // attach this worker thread for the transport JNI calls
     std::lock_guard<std::mutex> txLock(txMutex_);  // serialize exchanges on the shared session
     auto doExchange = [&]() -> DecodedPacket {
         if (tokenization.has_value()) {
@@ -301,6 +326,7 @@ DecodedPacket HybridEcr17Client::runTransaction(
 }
 
 void HybridEcr17Client::runAckOnly(const std::string& payload, bool safeToRetry) {
+    ECR17_JNI_THREAD_GUARD;  // attach this worker thread for the transport JNI calls
     std::lock_guard<std::mutex> txLock(txMutex_);  // serialize exchanges on the shared session
     try {
         session_->sendAckOnly(payload);
@@ -323,11 +349,11 @@ void HybridEcr17Client::runAckOnly(const std::string& payload, bool safeToRetry)
 }
 
 std::shared_ptr<Promise<void>> HybridEcr17Client::connect() {
-    ensureInit();
-    if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::CONNECTING);
-    const double port = config_.port.value_or(1024);
-    const double timeout = config_.connectionTimeoutMs.value_or(5000);
-    return transport_->connect(config_.host, port, timeout);
+    // Delegate to ensureConnected so the explicit Connect path emits CONNECTING
+    // and then CONNECTED on success (consistent with command auto-connect);
+    // returning the raw transport promise would leave listeners stuck on
+    // CONNECTING. Runs on a worker thread (ensureConnected blocks until ready).
+    return Promise<void>::async([this]() { ensureConnected(); });
 }
 
 void HybridEcr17Client::disconnect() {
