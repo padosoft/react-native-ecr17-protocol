@@ -155,7 +155,7 @@ import { createEcr17Client } from 'react-native-ecr17';
 
 const client = createEcr17Client({
   host: '192.168.1.50',     // terminal IP on the LAN
-  port: 1024,               // configured ECR port
+  port: 10000,               // configured ECR port
   terminalId: '12345678',
   cashRegisterId: '00000001',
   lrcMode: 'std',
@@ -294,7 +294,7 @@ An opt-in C++ integration test runs the full core over a real TCP socket. It is
 
 ```bash
 cmake -S package/cpp/tests -B build && cmake --build build
-ECR17_TERMINAL_HOST=192.168.1.50 ECR17_TERMINAL_PORT=1024 \
+ECR17_TERMINAL_HOST=192.168.1.50 ECR17_TERMINAL_PORT=10000 \
 ECR17_TERMINAL_ID=00000000 ECR17_LRC_MODE=std \
 ctest --test-dir build -R Integration --output-on-failure
 ```

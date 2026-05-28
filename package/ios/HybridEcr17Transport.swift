@@ -16,9 +16,10 @@ final class HybridEcr17Transport: HybridEcr17TransportSpec {
 
   func connect(host: String, port: Double, timeoutMs: Double) throws -> Promise<Void> {
     let promise = Promise<Void>()
-    let endpointPort = NWEndpoint.Port(rawValue: UInt16(port)) ?? NWEndpoint.Port(integerLiteral: 1024)
     let conn = NWConnection(host: NWEndpoint.Host(host), port: endpointPort, using: .tcp)
     connection = conn
+        let endpointPort =
+            NWEndpoint.Port(rawValue: UInt16(port)) ?? NWEndpoint.Port(integerLiteral: 10000)
 
     var settled = false
     conn.stateUpdateHandler = { [weak self] state in

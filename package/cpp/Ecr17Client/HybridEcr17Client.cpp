@@ -277,7 +277,7 @@ void HybridEcr17Client::ensureConnected() {
     // Auto-connect: block this worker thread until the native transport connects
     // (or throw on failure). keepAlive leaves the socket open for reuse.
     if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::CONNECTING);
-    const double port = config_.port.value_or(1024);
+    const double port = config_.port.value_or(10000);
     const double timeout = config_.connectionTimeoutMs.value_or(5000);
     try {
         transport_->connect(config_.host, port, timeout)->await().get();

@@ -91,7 +91,7 @@ Composes: `ConnectionBar` (top), `ConfigForm` (collapsible), `CommandPalette`
 ## Config persistence
 Persist the last-used `Ecr17Config` to a JSON file in `documentDirectory` (or
 AsyncStorage if already available); load on mount; sensible defaults
-(host empty, port 1024, lrcMode "std", timeouts as in the C++ defaults).
+(host empty, port 10000, lrcMode "std", timeouts as in the C++ defaults).
 
 ## Data flow (one command)
 1. User taps a command → (optional) fills params sheet → `run(key, params)`.
