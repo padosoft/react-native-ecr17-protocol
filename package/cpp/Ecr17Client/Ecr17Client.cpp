@@ -10,6 +10,7 @@
 
 #include "Ecr17Protocol/Ecr17Protocol.hpp"
 #include "Ecr17Response/Ecr17Response.hpp"
+#include "Session/RetryPolicy.hpp"
 
 namespace margelo::nitro::ecr17 {
 
@@ -273,12 +274,13 @@ DecodedPacket HybridEcr17Client::runTransaction(
     try {
         return doExchange();
     } catch (const std::exception&) {
+        const bool autoReconnect = config_.autoReconnect.value_or(false);
         const bool dropped = !transport_ || !transport_->isConnected();
-        if (config_.autoReconnect.value_or(false) && dropped) {
+        if (autoReconnect && dropped) {
             ensureConnected();  // restore the socket for subsequent commands
-            if (safeToRetry) {
-                return doExchange();  // only read-only ops may be safely retried
-            }
+        }
+        if (shouldRetryAfterReconnect(autoReconnect, dropped, safeToRetry)) {
+            return doExchange();  // only read-only/idempotent ops may be replayed
         }
         throw;  // financial op: surface the error (recover via sendLastResult / 'G')
     }
@@ -288,15 +290,18 @@ void HybridEcr17Client::runAckOnly(const std::string& payload, bool safeToRetry)
     try {
         session_->sendAckOnly(payload);
     } catch (const std::exception&) {
+        const bool autoReconnect = config_.autoReconnect.value_or(false);
         const bool dropped = !transport_ || !transport_->isConnected();
-        if (config_.autoReconnect.value_or(false) && dropped) {
+        if (autoReconnect && dropped) {
             ensureConnected();
-            if (safeToRetry) {
-                session_->sendAckOnly(payload);
-                return;
-            }
         }
-        throw;
+        if (shouldRetryAfterReconnect(autoReconnect, dropped, safeToRetry)) {
+            session_->sendAckOnly(payload);
+        }
+        // else: surface the original error (already rethrown below for non-retry)
+        else {
+            throw;
+        }
     }
 }
 
