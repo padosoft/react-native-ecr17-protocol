@@ -64,9 +64,9 @@ full protocol reference is vendored in
 | Response parsing (`E/V/s/T/C/e/K`, incl. DCC) | ✅ |
 | Session orchestration (ACK/NAK, retransmit, timeout, progress/receipt) | ✅ |
 | Async client API + events | ✅ |
+| Auto-connect, tokenization (`U`) flow, receipt streaming | ✅ |
 | Android native transport (Kotlin TCP) | ✅ *(CI-built)* |
 | iOS native transport (Swift / Network.framework) | 🟡 *(best-effort; pending iOS-build verification)* |
-| Tokenization additional-data (`U`) flow wiring | 🟡 *(builder ready; flow wiring on the roadmap)* |
 
 ## Requirements
 
@@ -207,12 +207,38 @@ cmake --build build && ctest --test-dir build --output-on-failure
 every response parser, and the documented payment / reversal / re-pay / progress
 / receipt / NAK-retransmit / timeout flows (against an in-memory `FakeTransport`).
 
+## 🧾 Tokenization & receipts
+
+```ts
+// Tokenization: attach a contract to a payment/preAuth/verifyCard. The 'U'
+// additional-data message is sent automatically (P -> ACK -> U -> ACK -> result).
+await client.pay({
+  amountCents: 1000,
+  tokenization: { service: 'recurring', contractCode: '1666354841608' },
+});
+
+// Receipts printed by the ECR: enable printing, set receiptDrainMs in the config,
+// and receive lines via the event.
+await client.enableEcrPrinting(true);
+client.setOnReceiptLine((l) => appendToReceipt(l.text));
+```
+
+## 🔌 Testing against a real terminal (opt-in)
+
+An opt-in C++ integration test runs the full core over a real TCP socket. It is
+**skipped** unless `ECR17_TERMINAL_HOST` is set:
+
+```bash
+cmake -S package/cpp/tests -B build && cmake --build build
+ECR17_TERMINAL_HOST=192.168.1.50 ECR17_TERMINAL_PORT=1024 \
+ECR17_TERMINAL_ID=00000000 ECR17_LRC_MODE=std \
+ctest --test-dir build -R Integration --output-on-failure
+```
+
 ## 🛣️ Roadmap
 
 - [ ] iOS native transport verification (add a macOS CI build)
-- [ ] Tokenization (`U`) additional-data flow wiring into pay/preAuth/verify
-- [ ] Receipt streaming after the result message (multi-`S` concatenation)
-- [ ] Auto-connect / reconnect honoring `keepAlive` / `autoReconnect`
+- [ ] Auto-reconnect on a mid-session drop (honoring `autoReconnect`)
 
 ## 📄 License
 

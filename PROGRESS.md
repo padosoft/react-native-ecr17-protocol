@@ -26,10 +26,17 @@ Target PR: to be opened against `main` once Phase 0 lands (or reuse a draft).
 - [x] Phase 9 — root AGENTS.md distilled from LESSON.md (workflow + nitro/build know-how)  ✅
 - Final confirming Android build dispatched after the Kotlin reconnect/disconnect fix (run 26564115692).
 
-### Remaining / handoff
-- iOS Swift transport: best-effort, NO macOS CI → verify with an iOS build (roadmap).
-- Tokenization (U) flow wiring; receipt streaming after result; auto-connect/keepAlive.
-- PR #4 is stacked on #3 (base fix/ecr17-spec-compliance); retarget to main when #3 merges.
+### Roadmap COMPLETED (this session)
+- [x] Auto-connect/keepAlive (ensureConnected via transport await; socket kept open)
+- [x] Tokenization (U) flow wired (exchangeWithAdditionalData; pay/preAuth/verify)
+- [x] Receipt streaming after result (SessionConfig.receiptDrainMs + Ecr17Config field)
+- [x] Opt-in real-terminal test (PosixTcpTransport + test_integration_terminal, env-gated)
+- [x] PR #4 retargeted to main (#3 merged)
+- cpp-tests 80/80 green; client/native verified by Android build.
+
+### Genuinely remaining (need hardware/macOS — documented in README roadmap)
+- iOS Swift transport verification: NO macOS CI runner. Swift written best-effort.
+- Auto-reconnect on a mid-session drop (auto-connect done; reconnect-on-drop not).
 
 ### Native build iteration (Phase 8b)
 Trigger: `gh workflow run "Android build" --ref feat/ecr17-transport-and-commands`. ~15-20 min.
