@@ -15,6 +15,10 @@
 
 </div>
 
+> 🐘 **Using PHP / Laravel?** There's a sibling port:
+> **[padosoft/laravel-ecr17](https://github.com/padosoft/laravel-ecr17)** —
+> the same ECR17 protocol as a Laravel package + debug console.
+
 ---
 
 ## 📚 Table of contents
