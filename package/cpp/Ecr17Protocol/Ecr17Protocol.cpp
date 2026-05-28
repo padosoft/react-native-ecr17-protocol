@@ -1,9 +1,20 @@
 #include "Ecr17Protocol.hpp"
 
+#include <stdexcept>
+
 namespace margelo::nitro::ecr17 {
 
+// Right-aligns `value` into a fixed-width field of `size` bytes, padding on the
+// left with `ch`. ECR17 fields have a fixed length, so a value longer than the
+// field would shift every following field and corrupt the frame: reject it
+// instead of emitting a malformed message.
 static std::string leftPad(const std::string& value, size_t size, char ch = '0') {
-    if (value.size() >= size) {
+    if (value.size() > size) {
+        throw std::invalid_argument("ECR17: value '" + value + "' exceeds fixed field width of " +
+                                    std::to_string(size) + " bytes");
+    }
+
+    if (value.size() == size) {
         return value;
     }
 
@@ -12,6 +23,10 @@ static std::string leftPad(const std::string& value, size_t size, char ch = '0')
 
 std::string Ecr17Protocol::buildPaymentMessage(const std::string& terminalId,
                                                const std::string& cashRegisterId, int amountCents) {
+    if (amountCents < 0) {
+        throw std::invalid_argument("ECR17: amount must be non-negative");
+    }
+
     std::string m;
 
     m += leftPad(terminalId, 8);
@@ -40,6 +55,22 @@ std::string Ecr17Protocol::buildStatusMessage(const std::string& terminalId) {
     m += "s";
 
     return m;
+}
+
+std::string Ecr17Protocol::buildReversalMessage(const std::string& terminalId,
+                                                const std::string& cashRegisterId,
+                                                const std::string& stan) {
+    std::string m;
+
+    m += leftPad(terminalId, 8);     // pos 1  : terminal id
+    m += "0";                        // pos 9  : reserved
+    m += "S";                        // pos 10 : message code
+    m += leftPad(cashRegisterId, 8); // pos 11 : cash register id
+    m += leftPad(stan, 6);           // pos 19 : STAN ("000000" = no check)
+    m += "0";                        // pos 25 : presence of additional GT data
+    m += "0";                        // pos 26 : reserved
+
+    return m;  // 26 bytes
 }
 
 }  // namespace margelo::nitro::ecr17

@@ -5,13 +5,14 @@
 #include <string>
 #include <vector>
 
-#include "Lcr.hpp"
+#include "Lcr/Lcr.hpp"
 
 namespace margelo::nitro::ecr17 {
 
 enum class PacketType {
     APPLICATION,
-    STATUS,
+    // SOH-framed procedure progress update (0x01 ... 0x04), see protocol spec.
+    PROGRESS,
     ACK,
     NAK,
     UNKNOWN,

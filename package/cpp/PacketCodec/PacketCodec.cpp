@@ -1,5 +1,8 @@
 #include "PacketCodec.hpp"
 
+#include <algorithm>  // std::find
+#include <iterator>   // std::distance
+
 namespace margelo::nitro::ecr17 {
 
 PacketCodec::PacketCodec(LrcMode mode) : lrcMode_(mode) {}
@@ -61,10 +64,21 @@ DecodedPacket PacketCodec::decode(const std::vector<uint8_t>& data) {
     }
 
     if (first == SOH) {
+        // Progress update packet: SOH + message + EOT (no LRC). We need at least
+        // SOH and the trailing EOT before stripping the first/last byte,
+        // otherwise the iterator range below would be invalid (last < first).
+        if (data.size() < 2) {
+            return {
+                PacketType::UNKNOWN,
+                "",
+                false,
+            };
+        }
+
         std::string payload(data.begin() + 1, data.end() - 1);
 
         return {
-            PacketType::STATUS,
+            PacketType::PROGRESS,
             payload,
             true,
         };
@@ -83,9 +97,24 @@ DecodedPacket PacketCodec::decode(const std::vector<uint8_t>& data) {
 
         size_t etxIndex = std::distance(data.begin(), etxIt);
 
+        // A well-formed application frame is exactly STX + payload + ETX + LRC,
+        // so the LRC must be the final byte. Reject both a truncated frame (no
+        // LRC after ETX) and a buffer with trailing bytes -- e.g. a coalesced
+        // socket read holding a second frame ("STX..ETX LRC STX..") or garbage
+        // after the LRC. Splitting a byte stream into individual frames is the
+        // transport layer's responsibility, and DecodedPacket cannot carry the
+        // unconsumed remainder.
+        if (etxIndex + 2 != data.size()) {
+            return {
+                PacketType::UNKNOWN,
+                "",
+                false,
+            };
+        }
+
         std::string payload(data.begin() + 1, data.begin() + etxIndex);
 
-        uint8_t rxLrc = data.back();
+        uint8_t rxLrc = data[etxIndex + 1];
 
         uint8_t calcLrc = Lrc::compute(payload, lrcMode_);
 
