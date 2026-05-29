@@ -318,8 +318,16 @@ void HybridEcr17Client::ensureConnected() {
     // Run the transport JNI work under the app class loader (Android); inline on iOS.
     runOnJvmThread([&]() {
         ensureInit();
+        // PROACTIVE reconnect: isConnected() performs a synchronous, non-destructive
+        // liveness probe (Android: a 1-byte peek-with-pushback that detects a peer
+        // FIN without writing to or consuming from the stream) so a peer-closed/
+        // half-open socket — common because ECR17/Nexi terminals close TCP between
+        // transactions — is detected HERE, before any command is sent. This is what
+        // stops a financial command from being sent on a stale socket and then
+        // hitting the (correct) money-safety "never replay" path with a FALSE
+        // "transport disconnected".
         if (transport_->isConnected()) {
-            return;  // returns from this lambda only — no further JNI needed
+            return;  // verified live — returns from this lambda only, no further JNI
         }
         // Auto-connect: block this worker thread until the native transport connects
         // (or throw on failure). keepAlive leaves the socket open for reuse.

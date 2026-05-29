@@ -80,6 +80,41 @@
 - **Emit `DISCONNECTED` on a failed connect**, else listeners stay stuck on
   `CONNECTING`. `connect()` delegates to `ensureConnected()` which emits
   CONNECTING→(CONNECTED | DISCONNECTED on throw).
+- **ECR17/Nexi terminals close the TCP socket BETWEEN transactions → detect the
+  drop PROACTIVELY (before sending), not reactively (after).** Observed on a real
+  device: financial commands (verifyCard/pay) INTERMITTENTLY failed with
+  "transport disconnected during exchange" while safe commands (status/totals)
+  succeeded — apparent "works once, fails next". Root cause: the terminal closes
+  the socket after a transaction (and the Kotlin reader thread may not have
+  observed the EOF `read()<0` yet — a race), so `isConnected()` returned `true`
+  for a half-open socket. The command was then SENT on a dead socket; the read
+  failed MID-exchange; `runTransaction`'s catch reconnected and applied the
+  money-safety RetryPolicy → safe/idempotent ops were replayed (→ ok) but
+  financial ops were (correctly) NOT replayed → a FALSE error surfaced. The
+  reactive reconnect left a fresh socket, so the user's NEXT manual attempt landed
+  on a good socket → the alternation. The money-safety behavior was correct; the
+  bug was discovering the drop AFTER the send instead of BEFORE. Fix: make Kotlin
+  `isConnected()` a synchronous, NON-DESTRUCTIVE, WRITE-FREE liveness probe — a
+  1-byte peek on a `PushbackInputStream` (short `soTimeout`): `read()==-1` ⇒ peer
+  closed (dead); `SocketTimeoutException` ⇒ idle but alive; any read byte is
+  `unread()` so a protocol byte is NEVER consumed. ⚠️ Do NOT use
+  `socket.sendUrgentData(0xFF)` for this (the first version did): it WRITES a TCP
+  out-of-band byte, and on a terminal with `SO_OOBINLINE` that 0xFF lands INLINE
+  right before the next `STX` frame — corrupting a financial command. The probe
+  must never put bytes on the peer's protocol stream. The reader thread and the
+  probe share the input stream under one `ioLock` (reader uses a short read timeout
+  so it releases the lock between reads); a single-shot `AtomicBoolean` makes a drop
+  fire onDisconnect exactly once across both paths, and the reader/probe close the
+  socket on a drop so `isConnected()`'s `isClosed` check is an immediate signal.
+  When the probe trips it marks the socket dead, so the existing `ensureConnected()`
+  (called at the start of every command) reconnects BEFORE the send and the
+  financial command starts on a verified-live socket. Money-safety is UNCHANGED —
+  RetryPolicy and sendLastResult ('G') recovery are untouched; we only removed the
+  FALSE drop from a stale pre-send socket; a genuine mid-exchange drop still
+  surfaces and is recovered via 'G'. iOS (`NWConnection.state == .ready`) reflects
+  peer-close too but state updates are async (small residual race; no iOS CI →
+  best-effort). Only reproducible by RUNNING against a real terminal — no build/unit
+  CI catches it.
 
 ## Build wiring
 - **Nitro C++ HybridObject impl header MUST be named after `implementationClassName`

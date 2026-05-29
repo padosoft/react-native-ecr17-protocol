@@ -2,8 +2,12 @@ package com.margelo.nitro.ecr17
 
 import com.margelo.nitro.core.ArrayBuffer
 import com.margelo.nitro.core.Promise
+import java.io.IOException
+import java.io.PushbackInputStream
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.net.SocketTimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 /**
@@ -16,11 +20,24 @@ class HybridEcr17Transport : HybridEcr17TransportSpec() {
   private var socket: Socket? = null
   private var readerThread: Thread? = null
 
+  // The reader and the liveness probe ([isConnected]) share one input stream;
+  // PushbackInputStream lets the probe peek a byte (looking only for EOF) and push
+  // it back so it is never consumed from the protocol stream.
+  private var input: PushbackInputStream? = null
+
   @Volatile private var running = false
 
   // True while a caller-initiated disconnect is in progress, so the reader's
   // finally block does not emit a spurious onDisconnect for an intentional close.
   @Volatile private var intentionalDisconnect = false
+
+  // Single-shot guard so a given drop fires onDisconnect exactly once, no matter
+  // whether the reader thread or the liveness probe observes it first.
+  private val disconnectEmitted = AtomicBoolean(false)
+
+  // Serializes access to the shared input stream between the reader thread and the
+  // liveness probe so the two never `read()` concurrently.
+  private val ioLock = Any()
 
   private var onDataCallback: ((ArrayBuffer) -> Unit)? = null
   private var onDisconnectCallback: (() -> Unit)? = null
@@ -30,40 +47,114 @@ class HybridEcr17Transport : HybridEcr17TransportSpec() {
       // Tear down any previous connection (and join its reader) before reconnecting.
       closeCurrent()
       intentionalDisconnect = false
+      disconnectEmitted.set(false)
 
       val s = Socket()
       s.tcpNoDelay = true
       s.connect(InetSocketAddress(host, port.toInt()), timeoutMs.toInt())
+      // A short read timeout lets the reader loop release `ioLock` periodically so
+      // the liveness probe ([isConnected]) can run between reads; a timeout is not
+      // an error, just "no data yet".
+      s.soTimeout = READ_TIMEOUT_MS
       socket = s
+      input = PushbackInputStream(s.getInputStream(), 1)
       running = true
-      startReader(s)
+      startReader()
       Unit
     }
   }
 
-  private fun startReader(s: Socket) {
+  private fun startReader() {
     readerThread =
       thread(name = "ecr17-reader", isDaemon = true) {
         val buffer = ByteArray(4096)
         try {
-          val input = s.getInputStream()
           while (running) {
-            val read = input.read(buffer)
-            if (read < 0) break
-            if (read > 0) {
-              onDataCallback?.invoke(ArrayBuffer.copy(buffer.copyOfRange(0, read)))
+            val read =
+              synchronized(ioLock) {
+                if (!running) return@synchronized SENTINEL_STOP
+                try {
+                  input?.read(buffer) ?: -1 // null stream -> treat as EOF
+                } catch (_: SocketTimeoutException) {
+                  SENTINEL_TIMEOUT // no data within READ_TIMEOUT_MS — keep looping
+                }
+              }
+            when {
+              read == SENTINEL_STOP -> break
+              read == SENTINEL_TIMEOUT -> continue
+              read < 0 -> break // EOF: peer closed the connection
+              read > 0 ->
+                onDataCallback?.invoke(ArrayBuffer.copy(buffer.copyOfRange(0, read)))
             }
           }
-        } catch (_: Throwable) {
-          // socket closed or read error
+        } catch (_: IOException) {
+          // Expected on socket close / read error. Other throwables (Error, unexpected
+          // RuntimeException) intentionally propagate so they're visible in dev; the
+          // finally still fires the drop notification before the thread unwinds.
         } finally {
-          running = false
-          // Only signal disconnect for unexpected drops, not caller-initiated closes.
-          if (!intentionalDisconnect) {
-            onDisconnectCallback?.invoke()
-          }
+          // Promptly close the socket so `isConnected()`'s `isClosed` check is an
+          // immediate, reliable signal of the drop (no reliance on a write probe).
+          markDropped()
         }
       }
+  }
+
+  /**
+   * Non-destructive liveness probe used to detect a peer-closed / half-open socket
+   * BEFORE a command is sent. ECR17/Nexi terminals routinely close the TCP socket
+   * between transactions; `Socket.isConnected` stays `true` for such a half-open
+   * socket, and the reader thread may not have observed the EOF yet — so without a
+   * probe a command could be sent on a dead socket, fail MID-exchange, and (because
+   * the money-safety RetryPolicy correctly refuses to replay a financial command)
+   * surface a FALSE "transport disconnected" error.
+   *
+   * The probe peeks ONE byte with a tiny read timeout and immediately pushes it
+   * back, so it NEVER consumes a protocol byte and NEVER writes anything to the
+   * peer (unlike `sendUrgentData`, which can place an inline 0xFF before the next
+   * STX frame on terminals with SO_OOBINLINE and corrupt a financial command). A
+   * returned `-1` means the peer closed; a read timeout means the (idle) socket is
+   * alive. It runs under `ioLock` so it never races the reader's `read()`.
+   *
+   * Money-safety is unchanged: this only removes the FALSE drop from a stale
+   * pre-send socket; a genuine mid-exchange drop still surfaces and is recovered
+   * via sendLastResult ('G').
+   */
+  override fun isConnected(): Boolean {
+    val s = socket
+    val pin = input
+    if (!running || s == null || pin == null || !s.isConnected || s.isClosed) {
+      return false
+    }
+    return synchronized(ioLock) {
+      if (!running || s.isClosed) return@synchronized false
+      // Use a tiny probe timeout instead of the reader's READ_TIMEOUT_MS so a healthy
+      // IDLE socket (the normal between-transactions case) returns "alive" almost
+      // immediately rather than blocking every pre-send check for the full read
+      // timeout. Safe to retune soTimeout here: we hold ioLock, so the reader thread
+      // is not mid-read; we restore READ_TIMEOUT_MS before releasing the lock.
+      try {
+        s.soTimeout = PROBE_TIMEOUT_MS
+        val b = pin.read() // EOF (-1) if peer closed; SocketTimeoutException if idle+alive
+        if (b < 0) {
+          markDropped()
+          false
+        } else {
+          pin.unread(b) // push the (unexpected) byte back — never consumed/dropped
+          true
+        }
+      } catch (_: SocketTimeoutException) {
+        true // idle but alive (no FIN received within the probe timeout)
+      } catch (_: IOException) {
+        markDropped() // genuine I/O error: treat as dropped (other throwables propagate)
+        false
+      } finally {
+        try {
+          s.soTimeout = READ_TIMEOUT_MS // restore the reader loop's timeout
+        } catch (_: IOException) {
+          // socket already closed by markDropped(); nothing to restore
+        }
+      }
+    }
   }
 
   /** Closes the current socket and joins its reader thread (intentional close). */
@@ -76,6 +167,7 @@ class HybridEcr17Transport : HybridEcr17TransportSpec() {
       // ignore
     }
     socket = null
+    input = null
     readerThread?.let { t ->
       try {
         t.join(1000)
@@ -86,17 +178,27 @@ class HybridEcr17Transport : HybridEcr17TransportSpec() {
     readerThread = null
   }
 
-  override fun disconnect() {
-    closeCurrent()
+  /**
+   * Marks the connection as dropped, closes the socket so the drop is synchronously
+   * observable, and fires onDisconnect exactly once. Safe to call from both the
+   * reader thread and the liveness probe (single-shot via [disconnectEmitted]).
+   */
+  private fun markDropped() {
+    running = false
+    try {
+      socket?.close()
+    } catch (_: Throwable) {
+      // ignore
+    }
+    // Only signal disconnect for unexpected drops, not caller-initiated closes, and
+    // only once per drop.
+    if (!intentionalDisconnect && disconnectEmitted.compareAndSet(false, true)) {
+      onDisconnectCallback?.invoke()
+    }
   }
 
-  override fun isConnected(): Boolean {
-    // `Socket.isConnected` stays true after the peer closes the connection, so it
-    // alone can't detect an unexpected drop. The reader thread clears `running`
-    // when the stream ends (or on an intentional close), making it the source of
-    // truth for an active, usable connection.
-    val s = socket
-    return running && s != null && s.isConnected && !s.isClosed
+  override fun disconnect() {
+    closeCurrent()
   }
 
   override fun send(bytes: ArrayBuffer) {
@@ -112,5 +214,20 @@ class HybridEcr17Transport : HybridEcr17TransportSpec() {
 
   override fun setOnDisconnect(callback: () -> Unit) {
     onDisconnectCallback = callback
+  }
+
+  private companion object {
+    // Reader-loop read timeout: short enough that the liveness probe never waits
+    // long for `ioLock`, long enough to avoid busy-spinning.
+    private const val READ_TIMEOUT_MS = 100
+
+    // Probe read timeout used by isConnected(): tiny so a healthy idle socket reports
+    // "alive" near-instantly instead of paying READ_TIMEOUT_MS on every pre-send check.
+    private const val PROBE_TIMEOUT_MS = 1
+
+    // Sentinels returned by the synchronized read block; kept below the real EOF
+    // value (-1) so `read < 0` still catches a genuine EOF after these are handled.
+    private const val SENTINEL_TIMEOUT = -2
+    private const val SENTINEL_STOP = -3
   }
 }

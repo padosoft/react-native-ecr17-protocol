@@ -37,6 +37,14 @@ Target PR: to be opened against `main` once Phase 0 lands (or reuse a draft).
 - [x] Auto-reconnect on mid-session drop — SAFE policy (financial never replayed;
       RetryPolicy.hpp unit-tested; recover via sendLastResult 'G'). cpp 82/82.
 - [x] Money-safety reviewed by Copilot (no double-charge path) + README enterprise section.
+- [x] PROACTIVE reconnect (PR #11, fix/proactive-reconnect): ECR17/Nexi terminals
+      close TCP between transactions → detect the peer-closed/half-open socket
+      BEFORE sending (Kotlin isConnected() = write-free 1-byte peek-with-pushback on
+      a PushbackInputStream; NOT sendUrgentData — OOB would corrupt a financial frame
+      under SO_OOBINLINE). Removes the FALSE "transport disconnected during exchange"
+      on financial commands; money-safety (RetryPolicy / 'G') untouched. Also reverted
+      the LRC ETX-fold regression in Lcr.cpp (NOEXT, not STD) introduced by 44f178e.
+      LESSON.md updated.
 
 ### Genuinely remaining (need hardware/macOS — documented in README roadmap)
 - iOS Swift transport verification: NO macOS CI runner. Swift written best-effort.
