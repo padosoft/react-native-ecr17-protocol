@@ -26,6 +26,7 @@
 - [What is ECR17?](#-what-is-ecr17)
 - [Why this exists](#-why-this-exists)
 - [Highlights](#-highlights)
+- [Screenshots](#-screenshots)
 - [Feature status](#-feature-status)
 - [Requirements](#requirements)
 - [Installation](#-installation)
@@ -95,6 +96,29 @@ for everyone, and now, for mobile, they are.
 - 🤖 **Vibe-coding batteries included** — ships first-class AI-agent context
   (`AGENTS.md`, `CLAUDE.md`, `docs/LESSON.md`, `PROGRESS.md`) so contributors
   using AI assistants get accurate, instant project context. See [below](#-vibe-coding-batteries-included).
+
+## 📱 Screenshots
+
+The repo ships an example **Debug Console** app (iOS & Android) that exercises every
+ECR17 command against a real terminal and streams the behind-the-scenes log
+(sent / progress / receipt / result / error) live.
+
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <img src="https://raw.githubusercontent.com/padosoft/react-native-ecr17-protocol/main/resources/screenshoots/demo-app-android.jpeg" alt="Debug Console on Android — commands & configuration" width="240" /><br/>
+      <sub>Android — commands &amp; configuration</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="https://raw.githubusercontent.com/padosoft/react-native-ecr17-protocol/main/resources/screenshoots/demo-app-iOS.jpeg" alt="Debug Console on iOS — commands & configuration" width="240" /><br/>
+      <sub>iOS — commands &amp; configuration</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="https://raw.githubusercontent.com/padosoft/react-native-ecr17-protocol/main/resources/screenshoots/demo-app-iOS-logs.jpeg" alt="Debug Console on iOS — live logs tab" width="240" /><br/>
+      <sub>iOS — live logs tab</sub>
+    </td>
+  </tr>
+</table>
 
 ## 🛡️ Enterprise robustness & payment safety
 
