@@ -6,10 +6,8 @@
 
 **The most complete open-source ECR17 toolkit for React Native & native mobile (iOS/Android).**
 
-[![npm version](https://img.shields.io/npm/v/react-native-ecr17.svg?style=flat-square)](https://www.npmjs.com/package/react-native-ecr17)
-[![npm downloads](https://img.shields.io/npm/dm/react-native-ecr17.svg?style=flat-square)](https://www.npmjs.com/package/react-native-ecr17)
-[![License: MIT](https://img.shields.io/npm/l/react-native-ecr17.svg?style=flat-square)](https://github.com/padosoft/react-native-ecr17-protocol/blob/main/LICENSE)
-[![C++ tests](https://github.com/padosoft/react-native-ecr17-protocol/actions/workflows/cpp-tests.yml/badge.svg)](https://github.com/padosoft/react-native-ecr17-protocol/actions/workflows/cpp-tests.yml)
+[![C++ tests](https://github.com/padosoft/react-native-ecr17-protocol/actions/workflows/cpp-tests.yml/badge.svg?branch=main)](https://github.com/padosoft/react-native-ecr17-protocol/actions/workflows/cpp-tests.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](https://github.com/padosoft/react-native-ecr17-protocol/blob/main/LICENSE)
 [![Built with Nitro](https://img.shields.io/badge/built%20with-Nitro-8B5CF6?style=flat-square)](https://nitro.margelo.com)
 [![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20Android-555?style=flat-square)](#requirements)
 
