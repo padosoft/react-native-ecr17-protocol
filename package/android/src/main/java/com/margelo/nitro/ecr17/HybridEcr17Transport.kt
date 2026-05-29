@@ -127,7 +127,13 @@ class HybridEcr17Transport : HybridEcr17TransportSpec() {
     }
     return synchronized(ioLock) {
       if (!running || s.isClosed) return@synchronized false
+      // Use a tiny probe timeout instead of the reader's READ_TIMEOUT_MS so a healthy
+      // IDLE socket (the normal between-transactions case) returns "alive" almost
+      // immediately rather than blocking every pre-send check for the full read
+      // timeout. Safe to retune soTimeout here: we hold ioLock, so the reader thread
+      // is not mid-read; we restore READ_TIMEOUT_MS before releasing the lock.
       try {
+        s.soTimeout = PROBE_TIMEOUT_MS
         val b = pin.read() // EOF (-1) if peer closed; SocketTimeoutException if idle+alive
         if (b < 0) {
           markDropped()
@@ -137,10 +143,16 @@ class HybridEcr17Transport : HybridEcr17TransportSpec() {
           true
         }
       } catch (_: SocketTimeoutException) {
-        true // idle but alive (no FIN received within the timeout)
+        true // idle but alive (no FIN received within the probe timeout)
       } catch (_: IOException) {
         markDropped() // genuine I/O error: treat as dropped (other throwables propagate)
         false
+      } finally {
+        try {
+          s.soTimeout = READ_TIMEOUT_MS // restore the reader loop's timeout
+        } catch (_: IOException) {
+          // socket already closed by markDropped(); nothing to restore
+        }
       }
     }
   }
@@ -208,6 +220,10 @@ class HybridEcr17Transport : HybridEcr17TransportSpec() {
     // Reader-loop read timeout: short enough that the liveness probe never waits
     // long for `ioLock`, long enough to avoid busy-spinning.
     private const val READ_TIMEOUT_MS = 100
+
+    // Probe read timeout used by isConnected(): tiny so a healthy idle socket reports
+    // "alive" near-instantly instead of paying READ_TIMEOUT_MS on every pre-send check.
+    private const val PROBE_TIMEOUT_MS = 1
 
     // Sentinels returned by the synchronized read block; kept below the real EOF
     // value (-1) so `read < 0` still catches a genuine EOF after these are handled.
