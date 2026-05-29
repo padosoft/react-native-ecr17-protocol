@@ -11,6 +11,8 @@
 [![Built with Nitro](https://img.shields.io/badge/built%20with-Nitro-8B5CF6?style=flat-square)](https://nitro.margelo.com)
 [![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20Android-555?style=flat-square)](#requirements)
 
+<img src="https://raw.githubusercontent.com/padosoft/react-native-ecr17-protocol/main/resources/banner.png" alt="react-native-ecr17 banner" width="100%" />
+
 </div>
 
 > 🐘 **Using PHP / Laravel?** There's a sibling port:
