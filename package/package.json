@@ -10,8 +10,10 @@
 	"scripts": {
 		"typecheck": "tsc --noEmit",
 		"clean": "git clean -dfX",
-		"build": "bun run typecheck && bob build",
-		"codegen": "nitrogen --logLevel=\"debug\" && bun run build"
+		"build": "bob build",
+		"codegen": "nitrogen --logLevel=\"debug\" && bun run build",
+		"version-packages": "changeset version && bun i --lockfile-only",
+		"publish-packages": "bun run codegen && changeset version && changeset publish"
 	},
 	"keywords": [
 		"react-native",
