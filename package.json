@@ -3,12 +3,18 @@
 	"private": true,
 	"author": "padosoft",
 	"packageManager": "bun@1.3.13",
+	"scripts": {
+		"lint": "biome check .",
+		"lint:fix": "biome check . --write --unsafe",
+	},
 	"workspaces": [
 		"package",
 		"example"
 	],
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.16",
+		"@changesets/changelog-github": "^0.7.0",
+		"@changesets/cli": "^2.31.0",
 		"@padosoft/config": "^1.2.2",
 		"typescript": "^6.0.3"
 	}
