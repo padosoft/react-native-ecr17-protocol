@@ -1,0 +1,45 @@
+name: Release packages
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "package/*/CHANGELOG.md"
+      - ".changeset/*"
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+env:
+    NPM_CONFIG_PROVENANCE: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/ci-setup
+        env:
+          GESCAT_NPM_TOKEN: ${{ secrets.GESCAT_NPM_TOKEN }}
+          
+      - name: Create Release Pull Request or Publish to NPM
+        id: changesets
+        uses: changesets/action@v1
+        working-directory: ./package
+        with:
+          version: bun version-packages
+          publish: bun publish-packages
+          commit: "chore(release): version packages"
+          title: "chore(release): version packages"
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Publish release tags
+        run: git push --follow-tags --set-upstream origin HEAD
