@@ -1,0 +1,19 @@
+{
+	"$schema": "https://unpkg.com/@changesets/config@3.1.4/schema.json",
+	"changelog": [
+		"@changesets/changelog-github",
+		{ "repo": "padosoft/gesreact-native-ecr17-protocol" }
+	],
+	"commit": false,
+	"fixed": [],
+	"linked": [],
+	"access": "restricted",
+	"baseBranch": "main",
+	"updateInternalDependencies": "patch",
+	"ignore": [],
+	"changedFilePatterns": ["package/**"],
+	"___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
+		"onlyUpdatePeerDependentsWhenOutOfRange": true,
+		"updateInternalDependents": "always"
+	}
+}
