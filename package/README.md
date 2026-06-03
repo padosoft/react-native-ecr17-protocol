@@ -1,6 +1,6 @@
 <div align="center">
 
-# 💳 react-native-ecr17
+# 💳 @padosoft/react-native-ecr17
 
 **A React Native / Nitro module for the Italian ECR17 payment protocol — drive Nexi Group POS terminals over LAN, straight from your cash-register app.**
 
@@ -11,7 +11,7 @@
 [![Built with Nitro](https://img.shields.io/badge/built%20with-Nitro-8B5CF6?style=flat-square)](https://nitro.margelo.com)
 [![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20Android-555?style=flat-square)](#requirements)
 
-<img src="https://raw.githubusercontent.com/padosoft/react-native-ecr17-protocol/main/resources/banner.png" alt="react-native-ecr17 banner" width="100%" />
+<img src="https://raw.githubusercontent.com/padosoft/react-native-ecr17-protocol/main/resources/banner.png" alt="@padosoft/react-native-ecr17 banner" width="100%" />
 
 </div>
 
@@ -165,7 +165,7 @@ first-class:
 ## 📦 Installation
 
 ```bash
-bun add react-native-ecr17 react-native-nitro-modules
+bun add @padosoft/react-native-ecr17 react-native-nitro-modules
 # or: npm install react-native-ecr17 react-native-nitro-modules
 cd ios && pod install   # iOS
 ```
@@ -175,7 +175,7 @@ cd ios && pod install   # iOS
 ## 🚀 Quick start
 
 ```ts
-import { createEcr17Client } from 'react-native-ecr17';
+import { createEcr17Client } from '@padosoft/react-native-ecr17';
 
 const client = createEcr17Client({
   host: '192.168.1.50',     // terminal IP on the LAN
@@ -206,7 +206,7 @@ await client.disconnect();
 
 ```tsx
 import { useEffect, useMemo, useState } from 'react';
-import { createEcr17Client, type Ecr17Config, type ProgressEvent } from 'react-native-ecr17';
+import { createEcr17Client, type Ecr17Config, type ProgressEvent } from '@padosoft/react-native-ecr17';
 
 export function useEcr17(config: Ecr17Config) {
   const client = useMemo(() => createEcr17Client(config), [config]);

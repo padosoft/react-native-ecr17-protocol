@@ -1,7 +1,7 @@
 {
 	"name": "@padosoft/react-native-ecr17",
 	"version": "0.0.0",
-	"description": "react-native-ecr17 is a react native package built with Nitro",
+	"description": "react-native-ecr17 is a RN package built with Nitro for the ECR17 protocol, allowing integration with POS terminals.",
 	"main": "./lib/commonjs/index.js",
 	"module": "./lib/module/index.js",
 	"types": "./lib/typescript/src/index.d.ts",
@@ -15,7 +15,8 @@
 	},
 	"keywords": [
 		"react-native",
-		"react-native-ecr17"
+		"react-native-ecr17",
+		"ecr17"
 	],
 	"files": [
 		"src",
