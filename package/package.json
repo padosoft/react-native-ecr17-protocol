@@ -1,5 +1,5 @@
 {
-	"name": "react-native-ecr17",
+	"name": "@padosoft/react-native-ecr17",
 	"version": "0.0.0",
 	"description": "react-native-ecr17 is a react native package built with Nitro",
 	"main": "./lib/commonjs/index.js",
