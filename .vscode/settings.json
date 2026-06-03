@@ -24,7 +24,8 @@
 	"json.schemaDownload.trustedDomains": {
 		"https://json.schemastore.org/": true,
 		"https://biomejs.dev": true,
-		"https://nitro.margelo.com": true
+		"https://nitro.margelo.com": true,
+		"https://unpkg.com": true
 	},
 	"files.associations": {
 		"vector": "cpp",
