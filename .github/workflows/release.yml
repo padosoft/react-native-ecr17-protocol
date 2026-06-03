@@ -32,7 +32,6 @@ jobs:
       - name: Create Release Pull Request or Publish to NPM
         id: changesets
         uses: changesets/action@v1
-        working-directory: ./package
         with:
           version: bun version-packages
           publish: bun publish-packages
