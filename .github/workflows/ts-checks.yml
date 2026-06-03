@@ -15,6 +15,7 @@ permissions:
 
 jobs:
   typecheck:
+    if: github.repository == 'padosoft/react-native-ecr17-protocol'
     name: Typecheck + Nitrogen codegen
     runs-on: ubuntu-latest
     steps:

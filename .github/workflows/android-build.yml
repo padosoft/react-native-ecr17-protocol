@@ -17,6 +17,7 @@ permissions:
 
 jobs:
   android:
+    if: github.repository == 'padosoft/react-native-ecr17-protocol'
     name: Build example (debug) — compiles C++/Kotlin/Nitro
     runs-on: ubuntu-latest
     steps:
