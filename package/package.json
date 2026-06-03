@@ -11,9 +11,7 @@
 		"typecheck": "tsc --noEmit",
 		"clean": "git clean -dfX",
 		"build": "bob build",
-		"codegen": "nitrogen --logLevel=\"debug\" && bun run build",
-		"version-packages": "changeset version && bun i --lockfile-only",
-		"publish-packages": "bun run codegen && changeset version && changeset publish"
+		"codegen": "nitrogen --logLevel=\"debug\" && bun run build"
 	},
 	"keywords": [
 		"react-native",

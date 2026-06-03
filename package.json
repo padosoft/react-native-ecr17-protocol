@@ -6,6 +6,8 @@
 	"scripts": {
 		"lint": "biome check .",
 		"lint:fix": "biome check . --write --unsafe",
+		"version-packages": "changeset version && bun i --lockfile-only",
+		"publish-packages": "changeset version && cd package && bun run codegen && changeset publish"
 	},
 	"workspaces": [
 		"package",
