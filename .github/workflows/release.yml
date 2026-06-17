@@ -22,6 +22,7 @@ jobs:
       contents: write
       pull-requests: write
       id-token: write
+      packages: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -41,6 +42,20 @@ jobs:
           title: "chore(release): version packages"
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
+
+      # changeset publish (above) targets npmjs.org via publishConfig.registry.
+      # Mirror the same build to GitHub Packages so the app can install from there too.
+      - name: Publish to GitHub Packages
+        if: steps.changesets.outputs.published == 'true'
+        working-directory: package
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
+          npm publish --registry=https://npm.pkg.github.com
+          rm -f .npmrc
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Provenance/sigstore is npmjs-only; it breaks publishing to GitHub Packages.
+          NPM_CONFIG_PROVENANCE: false
+
       - name: Publish release tags
         run: git push --follow-tags --set-upstream origin HEAD
