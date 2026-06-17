@@ -1,6 +1,6 @@
 {
 	"name": "@padosoft/react-native-ecr17",
-	"version": "0.0.0",
+	"version": "1.0.0",
 	"description": "react-native-ecr17 is a RN package built with Nitro for the ECR17 protocol, allowing integration with POS terminals.",
 	"main": "./lib/commonjs/index.js",
 	"module": "./lib/module/index.js",
@@ -41,11 +41,11 @@
 	"workspaces": [
 		"example"
 	],
-	"repository": "https://github.com/padosoft/react-native-ecr17.git",
+	"repository": "https://github.com/padosoft/react-native-ecr17-protocol.git",
 	"author": "padosoft",
 	"license": "MIT",
-	"bugs": "https://github.com/padosoft/react-native-ecr17/issues",
-	"homepage": "https://github.com/padosoft/react-native-ecr17#readme",
+	"bugs": "https://github.com/padosoft/react-native-ecr17-protocol/issues",
+	"homepage": "https://github.com/padosoft/react-native-ecr17-protocol#readme",
 	"publishConfig": {
 		"access": "public",
 		"registry": "https://registry.npmjs.org/"
