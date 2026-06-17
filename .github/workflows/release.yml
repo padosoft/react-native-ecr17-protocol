@@ -48,18 +48,23 @@ jobs:
       # Runs with always() and decides from the registries directly, because the
       # changesets step often succeeds the npm publish but then fails creating the
       # GitHub Release (transient HttpError) — we must not let that skip the mirror.
+      # Auth via GESCAT_NPM_TOKEN (a PAT authorized for the @padosoft org) — the same
+      # token gescat-openapi-spec uses. The default GITHUB_TOKEN is not allowed to
+      # create packages in this org, so it fails with ENEEDAUTH / create_package 403.
       - name: Publish to GitHub Packages
         if: always()
         working-directory: package
         run: |
           NAME=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")
+          # npm scope -> GitHub Packages, token expanded from env by npm at runtime.
+          # Single quotes keep ${GESCAT_NPM_TOKEN} literal so npm reads it from env.
+          printf '@padosoft:registry=https://npm.pkg.github.com/\n//npm.pkg.github.com/:_authToken=${GESCAT_NPM_TOKEN}\n' > .npmrc
           # Only mirror a version that actually made it to npmjs (i.e. a real publish run).
-          if ! npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+          if ! npm view "$NAME@$VERSION" --registry=https://registry.npmjs.org version >/dev/null 2>&1; then
             echo "$NAME@$VERSION is not on npmjs yet — nothing to mirror."
-            exit 0
+            rm -f .npmrc; exit 0
           fi
-          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
           if npm view "$NAME@$VERSION" --registry=https://npm.pkg.github.com version >/dev/null 2>&1; then
             echo "$NAME@$VERSION already on GitHub Packages — nothing to do."
             rm -f .npmrc; exit 0
@@ -69,7 +74,7 @@ jobs:
           npm publish --registry=https://npm.pkg.github.com
           rm -f .npmrc
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GESCAT_NPM_TOKEN: ${{ secrets.GESCAT_NPM_TOKEN }}
           # Provenance/sigstore is npmjs-only; it breaks publishing to GitHub Packages.
           NPM_CONFIG_PROVENANCE: false
 
