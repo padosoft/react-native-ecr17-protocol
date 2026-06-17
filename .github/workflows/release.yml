@@ -65,6 +65,11 @@ jobs:
             echo "//npm.pkg.github.com/:_authToken=${GESCAT_NPM_TOKEN}"
           } > .npmrc
           echo "--- .npmrc (redacted) ---"; sed 's/_authToken=.*/_authToken=***/' .npmrc
+          echo "--- npm resolved config ---"
+          echo "cwd: $(pwd)"
+          echo "@padosoft:registry = $(npm config get @padosoft:registry)"
+          echo "authToken resolved length = ${#NPM_TOK}"; NPM_TOK=$(npm config get '//npm.pkg.github.com/:_authToken'); echo "authToken resolved length = ${#NPM_TOK}"
+          echo "loaded npmrc files:"; npm config ls -l 2>&1 | grep -iE '^; .*(npmrc|config)' | head
           # Only mirror a version that actually made it to npmjs (i.e. a real publish run).
           if ! npm view "$NAME@$VERSION" --registry=https://registry.npmjs.org version >/dev/null 2>&1; then
             echo "$NAME@$VERSION is not on npmjs yet — nothing to mirror."
