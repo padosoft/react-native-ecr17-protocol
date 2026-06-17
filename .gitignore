@@ -144,3 +144,4 @@ vite.config.ts.timestamp-*
 # Nexi ECR17 docs: official source is the public Nexi developer portal.
 # A full local copy is kept private (not republished without permission).
 docs/standard ECR17 - supported by Nexi Group terminals.md
+.idea
