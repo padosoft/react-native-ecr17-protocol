@@ -57,9 +57,14 @@ jobs:
         run: |
           NAME=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")
-          # npm scope -> GitHub Packages, token expanded from env by npm at runtime.
-          # Single quotes keep ${GESCAT_NPM_TOKEN} literal so npm reads it from env.
-          printf '@padosoft:registry=https://npm.pkg.github.com/\n//npm.pkg.github.com/:_authToken=${GESCAT_NPM_TOKEN}\n' > .npmrc
+          # DEBUG: confirm the secret is actually populated (length only, never the value).
+          echo "GESCAT_NPM_TOKEN length: ${#GESCAT_NPM_TOKEN}"
+          # Write the token value directly (bash-expanded) to avoid relying on npm's env expansion.
+          {
+            echo "@padosoft:registry=https://npm.pkg.github.com/"
+            echo "//npm.pkg.github.com/:_authToken=${GESCAT_NPM_TOKEN}"
+          } > .npmrc
+          echo "--- .npmrc (redacted) ---"; sed 's/_authToken=.*/_authToken=***/' .npmrc
           # Only mirror a version that actually made it to npmjs (i.e. a real publish run).
           if ! npm view "$NAME@$VERSION" --registry=https://registry.npmjs.org version >/dev/null 2>&1; then
             echo "$NAME@$VERSION is not on npmjs yet — nothing to mirror."
