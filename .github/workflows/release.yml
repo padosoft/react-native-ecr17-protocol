@@ -44,12 +44,28 @@ jobs:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # changeset publish (above) targets npmjs.org via publishConfig.registry.
-      # Mirror the same build to GitHub Packages so the app can install from there too.
+      # Mirror the same version to GitHub Packages so the app can install from there too.
+      # Runs with always() and decides from the registries directly, because the
+      # changesets step often succeeds the npm publish but then fails creating the
+      # GitHub Release (transient HttpError) — we must not let that skip the mirror.
       - name: Publish to GitHub Packages
-        if: steps.changesets.outputs.published == 'true'
+        if: always()
         working-directory: package
         run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          # Only mirror a version that actually made it to npmjs (i.e. a real publish run).
+          if ! npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "$NAME@$VERSION is not on npmjs yet — nothing to mirror."
+            exit 0
+          fi
           echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
+          if npm view "$NAME@$VERSION" --registry=https://npm.pkg.github.com version >/dev/null 2>&1; then
+            echo "$NAME@$VERSION already on GitHub Packages — nothing to do."
+            rm -f .npmrc; exit 0
+          fi
+          # Build output is produced by the publish path (codegen); rebuild if absent.
+          [ -d lib ] || bun run codegen
           npm publish --registry=https://npm.pkg.github.com
           rm -f .npmrc
         env:
