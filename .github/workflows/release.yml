@@ -57,32 +57,28 @@ jobs:
         run: |
           NAME=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")
-          # DEBUG: confirm the secret is actually populated (length only, never the value).
-          echo "GESCAT_NPM_TOKEN length: ${#GESCAT_NPM_TOKEN}"
-          # Write the token value directly (bash-expanded) to avoid relying on npm's env expansion.
+          # Only mirror a version that actually made it to npmjs (i.e. a real publish run).
+          # Done before writing the scoped .npmrc so the scope->GitHub mapping can't
+          # redirect this npmjs lookup.
+          if ! npm view "$NAME@$VERSION" --registry=https://registry.npmjs.org version >/dev/null 2>&1; then
+            echo "$NAME@$VERSION is not on npmjs yet — nothing to mirror."
+            exit 0
+          fi
+          # IMPORTANT: this is an npm workspace; npm ignores .npmrc inside workspace
+          # members (package/). The auth/registry config must live at the repo root.
+          NPMRC="$GITHUB_WORKSPACE/.npmrc"
           {
             echo "@padosoft:registry=https://npm.pkg.github.com/"
             echo "//npm.pkg.github.com/:_authToken=${GESCAT_NPM_TOKEN}"
-          } > .npmrc
-          echo "--- .npmrc (redacted) ---"; sed 's/_authToken=.*/_authToken=***/' .npmrc
-          echo "--- npm resolved config ---"
-          echo "cwd: $(pwd)"
-          echo "@padosoft:registry = $(npm config get @padosoft:registry)"
-          echo "authToken resolved length = ${#NPM_TOK}"; NPM_TOK=$(npm config get '//npm.pkg.github.com/:_authToken'); echo "authToken resolved length = ${#NPM_TOK}"
-          echo "loaded npmrc files:"; npm config ls -l 2>&1 | grep -iE '^; .*(npmrc|config)' | head
-          # Only mirror a version that actually made it to npmjs (i.e. a real publish run).
-          if ! npm view "$NAME@$VERSION" --registry=https://registry.npmjs.org version >/dev/null 2>&1; then
-            echo "$NAME@$VERSION is not on npmjs yet — nothing to mirror."
-            rm -f .npmrc; exit 0
-          fi
+          } > "$NPMRC"
+          trap 'rm -f "$NPMRC"' EXIT
           if npm view "$NAME@$VERSION" --registry=https://npm.pkg.github.com version >/dev/null 2>&1; then
             echo "$NAME@$VERSION already on GitHub Packages — nothing to do."
-            rm -f .npmrc; exit 0
+            exit 0
           fi
           # Build output is produced by the publish path (codegen); rebuild if absent.
           [ -d lib ] || bun run codegen
           npm publish --registry=https://npm.pkg.github.com
-          rm -f .npmrc
         env:
           GESCAT_NPM_TOKEN: ${{ secrets.GESCAT_NPM_TOKEN }}
           # Provenance/sigstore is npmjs-only; it breaks publishing to GitHub Packages.
