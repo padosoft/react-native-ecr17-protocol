@@ -1,0 +1,21 @@
+:root {
+  --color-primary: #0d9488;
+  --color-primary-hover: #0f766e;
+  --color-primary-light: rgba(13, 148, 136, 0.12);
+  --color-accent: #2563eb;
+}
+
+.docmd-container.grids {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.docmd-container.grid-item {
+  min-width: 0;
+}
+
+.callout-danger code,
+.callout-warning code {
+  white-space: normal;
+}

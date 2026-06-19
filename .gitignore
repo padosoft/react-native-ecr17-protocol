@@ -39,6 +39,10 @@ build/Release
 
 # Dependency directories
 node_modules/
+_site/
+.docmd-search/*
+!.docmd-search/config.json
+docs-site/docs/.docmd-search/
 jspm_packages/
 
 # Snowpack dependency directory (https://snowpack.dev/)

@@ -1,0 +1,16 @@
+{
+  "name": "react-native-ecr17-protocol-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "docmd dev",
+    "build": "docmd build && node scripts/prepare-search-config.mjs && docmd-search docs --model Xenova/all-MiniLM-L6-v2 && node scripts/copy-search-index.mjs",
+    "check": "node scripts/check-no-raw-html.mjs && docmd build && node scripts/check-build-output.mjs"
+  },
+  "devDependencies": {
+    "@docmd/core": "0.8.6",
+    "@huggingface/transformers": "^4.2.0",
+    "docmd-search": "^0.1.0-alpha.1",
+    "onnxruntime-node": "1.26.0"
+  }
+}

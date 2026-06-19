@@ -1,0 +1,169 @@
+{
+  "title": "react-native-ecr17-protocol",
+  "description": "React Native Nitro module for Italian ECR17 POS terminal integration over LAN.",
+  "url": "https://doc.react-native-ecr17-protocol.padosoft.com",
+  "src": "docs",
+  "out": "_site",
+  "base": "/",
+  "favicon": "/assets/favicon.svg",
+  "layout": {
+    "spa": true,
+    "header": { "enabled": true },
+    "sidebar": {
+      "enabled": true,
+      "collapsible": true,
+      "defaultCollapsed": false,
+      "position": "left"
+    },
+    "footer": {
+      "style": "minimal",
+      "content": "MIT licensed documentation for padosoft/react-native-ecr17-protocol.",
+      "branding": true
+    },
+    "optionsMenu": {
+      "position": "sidebar-top",
+      "components": {
+        "search": true,
+        "themeSwitch": true,
+        "sponsor": null
+      }
+    },
+    "menubar": {
+      "enabled": true,
+      "position": "top",
+      "left": [
+        { "title": "Docs", "path": "/" },
+        { "title": "API", "path": "/reference/api" }
+      ],
+      "right": [
+        { "title": "GitHub", "path": "https://github.com/padosoft/react-native-ecr17-protocol", "external": true }
+      ]
+    }
+  },
+  "footer": {
+    "style": "minimal",
+    "content": "© padosoft. Independent ECR17 interoperability documentation.",
+    "branding": true
+  },
+  "theme": {
+    "name": "default",
+    "appearance": "system",
+    "codeHighlight": true,
+    "customCss": ["/assets/custom.css"],
+    "primaryColor": "#0d9488"
+  },
+  "copyCode": true,
+  "pageNavigation": true,
+  "minify": true,
+  "navigation": [
+    { "title": "Overview", "path": "/", "icon": "home" },
+    {
+      "title": "Get Started",
+      "icon": "rocket",
+      "collapsible": false,
+      "children": [
+        { "title": "Quickstart", "path": "/quickstart", "icon": "zap" },
+        { "title": "Installation", "path": "/installation", "icon": "download" },
+        { "title": "Configuration", "path": "/configuration", "icon": "sliders-horizontal" }
+      ]
+    },
+    {
+      "title": "Guides",
+      "icon": "book-open",
+      "collapsible": false,
+      "children": [
+        { "title": "Payment Flow", "path": "/guides/payment-flow", "icon": "credit-card" },
+        { "title": "Receipts", "path": "/guides/receipts", "icon": "receipt" },
+        { "title": "Tokenization", "path": "/guides/tokenization", "icon": "key-round" },
+        { "title": "Worked Example", "path": "/guides/worked-example", "icon": "route" }
+      ]
+    },
+    {
+      "title": "Concetti & Teoria",
+      "icon": "brain",
+      "collapsible": false,
+      "children": [
+        { "title": "Motivazione", "path": "/concepts/motivazione", "icon": "target" },
+        { "title": "Teoria", "path": "/concepts/teoria", "icon": "sigma" },
+        { "title": "Protocol Frames", "path": "/concepts/protocol-frames", "icon": "braces" },
+        { "title": "Data Contract", "path": "/concepts/data-contract", "icon": "file-json" }
+      ]
+    },
+    {
+      "title": "Architettura",
+      "icon": "network",
+      "collapsible": false,
+      "children": [
+        { "title": "Overview", "path": "/architecture/overview", "icon": "layout-dashboard" },
+        { "title": "Design", "path": "/architecture/design", "icon": "layers" },
+        { "title": "Pipeline", "path": "/architecture/pipeline", "icon": "workflow" },
+        { "title": "ADR", "path": "/architecture/adr", "icon": "landmark" }
+      ]
+    },
+    {
+      "title": "Best Practices",
+      "icon": "shield-check",
+      "collapsible": false,
+      "children": [
+        { "title": "Payment Safety", "path": "/best-practices/payment-safety", "icon": "shield-alert" },
+        { "title": "Testing", "path": "/best-practices/testing", "icon": "test-tube" }
+      ]
+    },
+    {
+      "title": "Operations",
+      "icon": "wrench",
+      "collapsible": false,
+      "children": [
+        { "title": "Runbook", "path": "/operations/runbook", "icon": "clipboard-list" },
+        { "title": "Troubleshooting", "path": "/operations/troubleshooting", "icon": "circle-help" }
+      ]
+    },
+    {
+      "title": "Reference",
+      "icon": "file-code",
+      "collapsible": false,
+      "children": [
+        { "title": "CLI", "path": "/reference/cli", "icon": "terminal" },
+        { "title": "API", "path": "/reference/api", "icon": "code" },
+        { "title": "Types", "path": "/reference/types", "icon": "brackets" }
+      ]
+    }
+  ],
+  "plugins": {
+    "search": {
+      "semantic": true,
+      "model": "Xenova/all-MiniLM-L6-v2",
+      "include": ["**/*.md"],
+      "exclude": ["**/.git/**", "**/node_modules/**"],
+      "showConfidence": true,
+      "showFilters": true,
+      "indexDir": ".docmd-search"
+    },
+    "git": {
+      "repo": "https://github.com/padosoft/react-native-ecr17-protocol",
+      "branch": "main",
+      "editLink": true,
+      "lastUpdated": true,
+      "commitHistory": true,
+      "maxCommits": 5,
+      "dateFormat": "relative"
+    },
+    "seo": {
+      "titleTemplate": "%s | react-native-ecr17-protocol",
+      "description": "React Native Nitro module for Italian ECR17 POS terminal integration over LAN."
+    },
+    "sitemap": {
+      "url": "https://doc.react-native-ecr17-protocol.padosoft.com"
+    },
+    "mermaid": {
+      "theme": "default"
+    },
+    "math": {
+      "katex": {}
+    },
+    "llms": {
+      "enabled": true
+    },
+    "analytics": false
+  }
+}
