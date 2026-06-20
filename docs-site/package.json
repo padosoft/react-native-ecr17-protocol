@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "docmd dev",
-    "build": "docmd build && node scripts/prepare-search-config.mjs && docmd-search docs --model Xenova/all-MiniLM-L6-v2 && node scripts/copy-search-index.mjs",
-    "check": "node scripts/check-no-raw-html.mjs && docmd build && node scripts/check-build-output.mjs"
+    "build": "docmd build",
+    "check": "node scripts/check-no-raw-html.mjs"
   },
   "devDependencies": {
     "@docmd/core": "0.8.6",

@@ -5,10 +5,11 @@
   "src": "docs",
   "out": "_site",
   "base": "/",
-  "favicon": "/assets/favicon.svg",
   "layout": {
     "spa": true,
-    "header": { "enabled": true },
+    "header": {
+      "enabled": true
+    },
     "sidebar": {
       "enabled": true,
       "collapsible": true,
@@ -32,11 +33,21 @@
       "enabled": true,
       "position": "top",
       "left": [
-        { "title": "Docs", "path": "/" },
-        { "title": "API", "path": "/reference/api" }
+        {
+          "title": "Docs",
+          "path": "/"
+        },
+        {
+          "title": "API",
+          "path": "/reference/api"
+        }
       ],
       "right": [
-        { "title": "GitHub", "path": "https://github.com/padosoft/react-native-ecr17-protocol", "external": true }
+        {
+          "title": "GitHub",
+          "path": "https://github.com/padosoft/react-native-ecr17-protocol",
+          "external": true
+        }
       ]
     }
   },
@@ -49,22 +60,40 @@
     "name": "default",
     "appearance": "system",
     "codeHighlight": true,
-    "customCss": ["/assets/custom.css"],
-    "primaryColor": "#0d9488"
+    "primaryColor": "#0d9488",
+    "customCss": [
+      "assets/custom.css"
+    ]
   },
   "copyCode": true,
   "pageNavigation": true,
   "minify": true,
   "navigation": [
-    { "title": "Overview", "path": "/", "icon": "home" },
+    {
+      "title": "Overview",
+      "path": "/",
+      "icon": "home"
+    },
     {
       "title": "Get Started",
       "icon": "rocket",
       "collapsible": false,
       "children": [
-        { "title": "Quickstart", "path": "/quickstart", "icon": "zap" },
-        { "title": "Installation", "path": "/installation", "icon": "download" },
-        { "title": "Configuration", "path": "/configuration", "icon": "sliders-horizontal" }
+        {
+          "title": "Quickstart",
+          "path": "/quickstart",
+          "icon": "zap"
+        },
+        {
+          "title": "Installation",
+          "path": "/installation",
+          "icon": "download"
+        },
+        {
+          "title": "Configuration",
+          "path": "/configuration",
+          "icon": "sliders-horizontal"
+        }
       ]
     },
     {
@@ -72,10 +101,26 @@
       "icon": "book-open",
       "collapsible": false,
       "children": [
-        { "title": "Payment Flow", "path": "/guides/payment-flow", "icon": "credit-card" },
-        { "title": "Receipts", "path": "/guides/receipts", "icon": "receipt" },
-        { "title": "Tokenization", "path": "/guides/tokenization", "icon": "key-round" },
-        { "title": "Worked Example", "path": "/guides/worked-example", "icon": "route" }
+        {
+          "title": "Payment Flow",
+          "path": "/guides/payment-flow",
+          "icon": "credit-card"
+        },
+        {
+          "title": "Receipts",
+          "path": "/guides/receipts",
+          "icon": "receipt"
+        },
+        {
+          "title": "Tokenization",
+          "path": "/guides/tokenization",
+          "icon": "key-round"
+        },
+        {
+          "title": "Worked Example",
+          "path": "/guides/worked-example",
+          "icon": "route"
+        }
       ]
     },
     {
@@ -83,10 +128,26 @@
       "icon": "brain",
       "collapsible": false,
       "children": [
-        { "title": "Motivazione", "path": "/concepts/motivazione", "icon": "target" },
-        { "title": "Teoria", "path": "/concepts/teoria", "icon": "sigma" },
-        { "title": "Protocol Frames", "path": "/concepts/protocol-frames", "icon": "braces" },
-        { "title": "Data Contract", "path": "/concepts/data-contract", "icon": "file-json" }
+        {
+          "title": "Motivazione",
+          "path": "/concepts/motivazione",
+          "icon": "target"
+        },
+        {
+          "title": "Teoria",
+          "path": "/concepts/teoria",
+          "icon": "sigma"
+        },
+        {
+          "title": "Protocol Frames",
+          "path": "/concepts/protocol-frames",
+          "icon": "braces"
+        },
+        {
+          "title": "Data Contract",
+          "path": "/concepts/data-contract",
+          "icon": "file-json"
+        }
       ]
     },
     {
@@ -94,10 +155,26 @@
       "icon": "network",
       "collapsible": false,
       "children": [
-        { "title": "Overview", "path": "/architecture/overview", "icon": "layout-dashboard" },
-        { "title": "Design", "path": "/architecture/design", "icon": "layers" },
-        { "title": "Pipeline", "path": "/architecture/pipeline", "icon": "workflow" },
-        { "title": "ADR", "path": "/architecture/adr", "icon": "landmark" }
+        {
+          "title": "Overview",
+          "path": "/architecture/overview",
+          "icon": "layout-dashboard"
+        },
+        {
+          "title": "Design",
+          "path": "/architecture/design",
+          "icon": "layers"
+        },
+        {
+          "title": "Pipeline",
+          "path": "/architecture/pipeline",
+          "icon": "workflow"
+        },
+        {
+          "title": "ADR",
+          "path": "/architecture/adr",
+          "icon": "landmark"
+        }
       ]
     },
     {
@@ -105,8 +182,16 @@
       "icon": "shield-check",
       "collapsible": false,
       "children": [
-        { "title": "Payment Safety", "path": "/best-practices/payment-safety", "icon": "shield-alert" },
-        { "title": "Testing", "path": "/best-practices/testing", "icon": "test-tube" }
+        {
+          "title": "Payment Safety",
+          "path": "/best-practices/payment-safety",
+          "icon": "shield-alert"
+        },
+        {
+          "title": "Testing",
+          "path": "/best-practices/testing",
+          "icon": "test-tube"
+        }
       ]
     },
     {
@@ -114,8 +199,16 @@
       "icon": "wrench",
       "collapsible": false,
       "children": [
-        { "title": "Runbook", "path": "/operations/runbook", "icon": "clipboard-list" },
-        { "title": "Troubleshooting", "path": "/operations/troubleshooting", "icon": "circle-help" }
+        {
+          "title": "Runbook",
+          "path": "/operations/runbook",
+          "icon": "clipboard-list"
+        },
+        {
+          "title": "Troubleshooting",
+          "path": "/operations/troubleshooting",
+          "icon": "circle-help"
+        }
       ]
     },
     {
@@ -123,9 +216,21 @@
       "icon": "file-code",
       "collapsible": false,
       "children": [
-        { "title": "CLI", "path": "/reference/cli", "icon": "terminal" },
-        { "title": "API", "path": "/reference/api", "icon": "code" },
-        { "title": "Types", "path": "/reference/types", "icon": "brackets" }
+        {
+          "title": "CLI",
+          "path": "/reference/cli",
+          "icon": "terminal"
+        },
+        {
+          "title": "API",
+          "path": "/reference/api",
+          "icon": "code"
+        },
+        {
+          "title": "Types",
+          "path": "/reference/types",
+          "icon": "brackets"
+        }
       ]
     }
   ],
@@ -133,8 +238,13 @@
     "search": {
       "semantic": true,
       "model": "Xenova/all-MiniLM-L6-v2",
-      "include": ["**/*.md"],
-      "exclude": ["**/.git/**", "**/node_modules/**"],
+      "include": [
+        "**/*.md"
+      ],
+      "exclude": [
+        "**/.git/**",
+        "**/node_modules/**"
+      ],
       "showConfidence": true,
       "showFilters": true,
       "indexDir": ".docmd-search"
@@ -165,5 +275,6 @@
       "enabled": true
     },
     "analytics": false
-  }
+  },
+  "favicon": "assets/favicon.svg"
 }
