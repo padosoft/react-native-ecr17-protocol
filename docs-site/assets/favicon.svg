@@ -1,6 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="react-native-ecr17-protocol">
-  <rect width="64" height="64" rx="12" fill="#0d9488"/>
-  <path d="M14 18h36v28H14z" fill="#ffffff" opacity=".95"/>
-  <path d="M18 24h28v4H18zm0 9h18v4H18z" fill="#0f172a"/>
-  <path d="M42 36l6 5-6 5v-3H30v-4h12z" fill="#0d9488"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" aria-label="react-native-ecr17-protocol" role="img" viewBox="0 0 64 64"><rect width="64" height="64" fill="#0d9488" rx="12"/><path fill="#fff" d="M14 18h36v28H14z" opacity=".95"/><path fill="#0f172a" d="M18 24h28v4H18zm0 9h18v4H18z"/><path fill="#0d9488" d="M42 36l6 5-6 5v-3H30v-4h12z"/></svg>
