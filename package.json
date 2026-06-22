@@ -8,6 +8,8 @@
 		"lint:fix": "biome check . --write --unsafe",
 		"version-packages": "changeset version && bun i --lockfile-only",
 		"publish-packages": "changeset version && (cd package && bun run codegen) && changeset publish",
+		"sync:readme": "node scripts/sync-readme.mjs",
+		"check:readme": "node scripts/sync-readme.mjs --check",
 		"dev": "npm --prefix docs-site run dev",
 		"build": "npm --prefix docs-site run build",
 		"check": "npm --prefix docs-site run check"
