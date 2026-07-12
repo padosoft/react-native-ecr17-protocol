@@ -20,6 +20,10 @@
 > 🐘 **Using PHP / Laravel?** There's a sibling port:
 > **[padosoft/laravel-ecr17](https://github.com/padosoft/laravel-ecr17)** —
 > the same ECR17 protocol as a Laravel package + debug console.
+>
+> 🦀 **Using Rust / building a desktop app?** There's a sibling port:
+> **[padosoft/rust-ecr17-protocol](https://github.com/padosoft/rust-ecr17-protocol)** —
+> the same ECR17 protocol as a pure-Rust crate + a Tauri desktop control panel.
 
 ---
 
