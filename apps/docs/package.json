@@ -1,0 +1,16 @@
+{
+  "name": "react-native-ecr17-protocol-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "docmd dev",
+    "build": "docmd build",
+    "check": "node scripts/check-no-raw-html.ts"
+  },
+  "devDependencies": {
+    "@docmd/core": "0.9.7",
+    "@huggingface/transformers": "^4.3.0",
+    "docmd-search": "^0.1.6",
+    "onnxruntime-node": "1.30.0"
+  }
+}

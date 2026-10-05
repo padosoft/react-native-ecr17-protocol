@@ -15,7 +15,7 @@ batteries included"). If you're an AI assistant working here, start with these:
 
 - 💰 **Money-critical:** a **financial command is never blindly re-sent** after a
   reconnect (double-charge risk). The decision lives in
-  `kit/cpp/include/Ecr17Kit/RetryPolicy.hpp` and is locked by `test_retry_policy.cpp`
+  `packages/ecr17/cpp/include/ecr17/RetryPolicy.hpp` and is locked by `test_retry_policy.cpp`
   and `Client.AFinancialCommandIsNeverResentAfterADrop`;
   recovery from a lost response is via `sendLastResult()` (spec command `G`).
 - **Keep CI green** — `cpp-tests` (the protocol core, fully unit-tested) and

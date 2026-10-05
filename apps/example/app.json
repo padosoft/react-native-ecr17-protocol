@@ -1,0 +1,35 @@
+{
+	"expo": {
+		"name": "ecr17",
+		"slug": "ecr17",
+		"version": "1.0.0",
+		"orientation": "portrait",
+		"icon": "./assets/images/icon.png",
+		"scheme": "ecr17",
+		"userInterfaceStyle": "automatic",
+		"ios": {
+			"bundleIdentifier": "com.padosoft.ecr17"
+		},
+		"android": {
+			"package": "com.padosoft.ecr17"
+		},
+		"plugins": [
+			"@padosoft/ecr17",
+			"expo-router",
+			[
+				"expo-splash-screen",
+				{
+					"backgroundColor": "#208AEF",
+					"android": {
+						"image": "./assets/images/splash-icon.png",
+						"imageWidth": 76
+					}
+				}
+			]
+		],
+		"experiments": {
+			"typedRoutes": true,
+			"reactCompiler": true
+		}
+	}
+}

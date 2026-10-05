@@ -41,16 +41,16 @@ jobs:
         env:
           GESCAT_NPM_TOKEN: ${{ secrets.GESCAT_NPM_TOKEN }}
         run: |
-          node scripts/strip-private-deps.mjs --keep @padosoft/native-modules,@padosoft/expo
+          bun scripts/strip-private-deps.ts --keep @padosoft/native-modules
           rm -f bun.lock
           bun install
 
       - name: Nitrogen codegen
-        working-directory: package
+        working-directory: packages/react-native-ecr17
         run: bunx nitrogen
 
       - name: Expo prebuild (android)
-        working-directory: example
+        working-directory: apps/example
         run: bunx expo prebuild --platform android --no-install
 
       - name: Setup Android SDK
@@ -61,13 +61,13 @@ jobs:
           sdkmanager "ndk;27.1.12297006" "cmake;3.22.1"
 
       - name: Gradle assembleDebug
-        working-directory: example/android
+        working-directory: apps/example/android
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: ecr17-example-debug-apk
-          path: example/android/app/build/outputs/apk/debug/*.apk
+          path: apps/example/android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14

@@ -1,23 +1,23 @@
 {
 	"name": "react-native-ecr17-protocol",
 	"private": true,
+	"type": "module",
 	"author": "padosoft",
 	"packageManager": "bun@1.3.13",
 	"scripts": {
 		"lint": "biome check .",
 		"lint:fix": "biome check . --write --unsafe",
 		"version-packages": "changeset version && bun i --lockfile-only",
-		"publish-packages": "changeset version && (cd package && bun run codegen) && changeset publish",
-		"sync:readme": "node scripts/sync-readme.mjs",
-		"check:readme": "node scripts/sync-readme.mjs --check",
-		"dev": "npm --prefix docs-site run dev",
-		"build": "npm --prefix docs-site run build",
-		"check": "npm --prefix docs-site run check"
+		"publish-packages": "changeset version && (cd packages/react-native-ecr17 && bun run codegen) && changeset publish",
+		"sync:readme": "bun scripts/sync-readme.ts",
+		"check:readme": "bun scripts/sync-readme.ts --check",
+		"dev": "npm --prefix apps/docs run dev",
+		"build": "npm --prefix apps/docs run build",
+		"check": "npm --prefix apps/docs run check"
 	},
 	"workspaces": [
-		"kit",
-		"package",
-		"example"
+		"packages/*",
+		"apps/example"
 	],
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.15",
