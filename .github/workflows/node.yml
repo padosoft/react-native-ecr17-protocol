@@ -83,17 +83,20 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
-      # tsconfig.json and tsdown.config.ts extend @padosoft/config, on the private GitHub
-      # Packages registry: GESCAT_NPM_TOKEN must be able to read padosoft packages.
+      # Like ts-checks: the @padosoft tooling lives on the private GitHub Packages registry,
+      # which CI cannot read, so it is stripped. tsconfig.ci.json reproduces
+      # @padosoft/config's strict options; the build runs with the same flags as its tsdown
+      # preset. (The release builds through the real preset: `bun run build`.)
       - name: Install dependencies
-        env:
-          GESCAT_NPM_TOKEN: ${{ secrets.GESCAT_NPM_TOKEN }}
-        run: bun install --frozen-lockfile
+        run: |
+          bun scripts/strip-private-deps.ts
+          rm -f bun.lock
+          bun install
 
-      - name: Typecheck
+      - name: Typecheck (self-contained config)
         working-directory: packages/ecr17
-        run: bun run typecheck
+        run: bunx tsc --noEmit -p tsconfig.ci.json
 
-      - name: Build (tsdown)
+      - name: Build (tsdown, preset flags)
         working-directory: packages/ecr17
-        run: bun run build
+        run: bunx tsdown --no-config src/index.ts -f esm -f cjs --platform node --shims --dts --tsconfig tsconfig.ci.json

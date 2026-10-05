@@ -94,7 +94,8 @@ still has open, valid reviewer comments.
 - `Node.js addon` (`node.yml`, ~3 min): builds `@padosoft/ecr17`'s Node-API addon on
   linux-x64, linux-arm64, darwin-arm64 and win32-x64, runs `node --test` against the fake
   terminal (so Winsock IS exercised on Windows CI through Node), uploads each `ecr17.node`;
-  plus typecheck + tsdown (needs `GESCAT_NPM_TOKEN` for `@padosoft/config`). The release
+  plus typecheck (`packages/ecr17/tsconfig.ci.json`: CI's token can't read the private
+  `@padosoft/config`, so it is stripped, as in ts-checks) + a tsdown build with the preset's flags. The release
   workflow calls it and ships the binaries in `packages/ecr17/prebuilds/`.
 - **Windows has no C++/RNW CI job (by decision): verify it LOCALLY** on this Windows host
   (VS 2022 Build Tools / VS 2026 + Windows SDK in `D:\Windows Kits\10`):

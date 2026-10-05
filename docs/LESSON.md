@@ -354,6 +354,10 @@
   only `node:` modules + ../src). CI therefore installs ONLY cmake-js + node-addon-api into
   `$RUNNER_TEMP/tools` with `NODE_PATH` pointing there (node/CMakeLists.txt resolves
   `require('node-addon-api').include_dir`), not the workspace (Expo, RN, private packages).
+- CI's `GESCAT_NPM_TOKEN` gets **401 from GitHub Packages** (`@padosoft/config`): the node
+  workflow's TS job therefore strips the private deps like ts-checks and typechecks with
+  `packages/ecr17/tsconfig.ci.json` (the preset's strict options, self-contained) and builds
+  with `tsdown --no-config` + the preset's flags. Only the release uses the real preset.
 - `@padosoft/config`'s TS preset sets `isolatedDeclarations` + `noPropertyAccessFromIndexSignature`:
   keep `tsdown.config.ts` out of the tsconfig `include`, and `process.env["X"]` needs a
   `biome-ignore lint/complexity/useLiteralKeys`. tsdown needs `shims: true` for
