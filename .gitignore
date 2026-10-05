@@ -36,6 +36,8 @@ bower_components
 
 # Compiled binary addons (https://nodejs.org/api/addons.html)
 build/Release
+# Windows transport tests (cmake -S package/windows/tests -B build-win)
+build-win/
 
 # Dependency directories
 node_modules/

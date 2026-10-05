@@ -1,0 +1,11 @@
+node_modules/
+npm-debug.log
+
+# Metro
+.metro-health-check*
+*.jsbundle
+
+# MSBuild
+msbuild.binlog
+*.binlog
+*.tlog

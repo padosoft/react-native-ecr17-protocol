@@ -1,0 +1,21 @@
+{
+	"extends": "@react-native/typescript-config",
+	"compilerOptions": {
+		"types": [],
+		"strict": true,
+		"skipLibCheck": true,
+		"paths": {
+			"@padosoft/react-native-ecr17": [
+				"../package/src/index.ts"
+			]
+		}
+	},
+	"include": [
+		"**/*.ts",
+		"**/*.tsx"
+	],
+	"exclude": [
+		"**/node_modules",
+		"windows"
+	]
+}

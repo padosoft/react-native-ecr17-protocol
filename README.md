@@ -11,7 +11,7 @@
 [![C++ tests](https://github.com/padosoft/react-native-ecr17-protocol/actions/workflows/cpp-tests.yml/badge.svg?branch=main)](https://github.com/padosoft/react-native-ecr17-protocol/actions/workflows/cpp-tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](https://github.com/padosoft/react-native-ecr17-protocol/blob/main/LICENSE)
 [![Built with Nitro](https://img.shields.io/badge/built%20with-Nitro-8B5CF6?style=flat-square)](https://nitro.margelo.com)
-[![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20Android-555?style=flat-square)](#requirements)
+[![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20Android%20%7C%20Windows-555?style=flat-square)](#requirements)
 
 <img src="https://raw.githubusercontent.com/padosoft/react-native-ecr17-protocol/main/resources/banner.png" alt="@padosoft/react-native-ecr17 banner" width="100%" />
 
@@ -85,7 +85,7 @@ for everyone, and now, for mobile, they are.
 
 ## ✨ Highlights
 
-- ⚡️ **C++ protocol core, Nitro-bridged** — framing/LRC/orchestration run natively on iOS & Android.
+- ⚡️ **C++ protocol core, Nitro-bridged** — framing/LRC/orchestration run natively on iOS, Android and Windows.
 - 🔄 **Async, Promise-based API** — `await client.pay({ amountCents })`.
 - 🧱 **Full command set** — payment, extended payment, reversal, pre-auth (request/incremental/closure), card verification, close session, totals, last result, ECR printing, reprint, VAS.
 - 🛡️ **Robust by design** — fixed-width field validation, defensive response parsing, ACK/NAK handshake with **retransmit-up-to-3** and timeouts.
@@ -157,10 +157,12 @@ first-class:
 | Auto-connect, tokenization (`U`) flow, receipt streaming | ✅ |
 | Android native transport (Kotlin TCP) | ✅ *(CI-built)* |
 | iOS native transport (Swift / Network.framework) | ✅ *(verified on device)* |
+| Windows native transport (C++ / Winsock, React Native Windows New Arch) | 🧪 *(built, loopback-tested and smoke-tested in the app locally; not yet verified on a terminal)* |
 
 ## Requirements
 
-- **React Native** 0.76+ (new architecture) — the example uses Expo SDK 56 / RN 0.85
+- **React Native** 0.76+ (new architecture) — the example uses Expo SDK 57 / RN 0.86
+- **React Native Windows** 0.84+ (New Architecture) for Windows — see [Windows](#-windows)
 - **react-native-nitro-modules** (peer dependency)
 - A Nexi Group ECR17-compatible terminal configured for **LAN integration**
 
@@ -173,6 +175,27 @@ cd ios && pod install   # iOS
 ```
 
 > Nitro module: requires the RN **new architecture** (default on 0.76+).
+
+### 🪟 Windows
+
+On **React Native Windows** (New Architecture), add the autolink helper to the
+app's `react-native.config.js`. `react-native-nitro-modules` has no Windows
+project, so this package's DLL installs Nitro itself:
+
+```js
+const { windowsAppDependencies } = require('@padosoft/react-native-ecr17/windows-autolink');
+
+module.exports = {
+  dependencies: windowsAppDependencies(),
+};
+```
+
+Then `npx react-native autolink-windows && npx react-native run-windows`. The
+transport is C++ (Winsock) with the same write-free pre-send liveness probe as
+Android. Details:
+[package/windows/README.md](https://github.com/padosoft/react-native-ecr17-protocol/blob/main/package/windows/README.md)
+· example app:
+[example-windows/](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/example-windows).
 
 ## 🚀 Quick start
 
@@ -284,6 +307,7 @@ package/cpp/
 └── Ecr17Client/    # HybridEcr17Client (Nitro async API)
 package/android/.../HybridEcr17Transport.kt   # Kotlin TCP transport
 package/ios/HybridEcr17Transport.swift        # Swift (Network.framework) transport
+package/windows/Ecr17/                        # RNW DLL: Nitro install shim + C++ Winsock transport
 ```
 
 ## 🧪 Testing

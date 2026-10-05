@@ -8,7 +8,8 @@ any sub-agent you spawn, and re-read it when starting a new session.**
 ## What this is
 A React Native **Nitro** module implementing the Italian **ECR17** payment
 protocol (Nexi Group POS terminals) over LAN. Protocol engine in C++ (shared),
-native TCP transport in Kotlin/Swift, async Promise API to JS.
+native TCP transport in Kotlin/Swift (C++/Winsock on React Native Windows),
+async Promise API to JS.
 
 Layered C++ core (`package/cpp/`, namespace `margelo::nitro::ecr17`):
 `Lcr` (LRC) → `PacketCodec` (framing) → `Ecr17Protocol` (builders) →
@@ -59,6 +60,20 @@ still has open, valid reviewer comments.
 - `cpp-tests` (fast, ~1 min): the real correctness gate — builds/runs the
   standalone GoogleTest suite. Keep it green.
 - `ts-checks` (fast): typecheck + nitrogen codegen.
+- **Windows has no CI job (by decision): verify it LOCALLY** on this Windows host
+  (VS 2022 Build Tools / VS 2026 + Windows SDK in `D:\Windows Kits\10`):
+  1. Winsock transport tests (~1 min build, 4 s run):
+     `cmake -S package/windows/tests -B build-win && cmake --build build-win --config Release && ctest --test-dir build-win -C Release --output-on-failure`
+  2. RNW build + deploy of `example-windows` (compiles Ecr17.dll: Nitro install shim +
+     shared C++ core + transport; builds and registers the MSIX package):
+     `cd example-windows && npm install && npx react-native run-windows --arch x64`.
+     The auto-launch at the end fails here (RNW calls `Get-AppxPackage` through PowerShell 7,
+     whose Appx module can't load); the app IS deployed — launch it with
+     `explorer.exe "shell:AppsFolder\Ecr17Example_mcede4qbjepqr!App"` or from the Start menu.
+  3. Runtime smoke test (for Nitro/transport changes): temporarily point `index.js` at a
+     script that creates the client and connects to a local fake terminal (Node TCP server);
+     RN 0.84's Metro does NOT print `console.log`, so POST results to a local HTTP logger.
+  Both are required for any change under `package/windows/**` or `package/cpp/**`.
 - `android-build` (~15-20 min, **manual dispatch only**:
   `gh workflow run "Android build" --ref <branch>`): compiles C++/Kotlin/Nitro
   via expo prebuild + gradle. The ONLY verifier of client/adapter/native code
@@ -119,7 +134,11 @@ still has open, valid reviewer comments.
 ## Conventions
 - C++20. Cross-unit includes are subdir-qualified from `package/cpp` (e.g.
   `#include "Lcr/Lcr.hpp"`). New `package/cpp/**/*.cpp` MUST be added to
-  `package/android/CMakeLists.txt` (iOS auto-globs via the podspec) and, if
-  unit-testable, to `package/cpp/tests/CMakeLists.txt`.
+  `package/android/CMakeLists.txt` AND `package/windows/Ecr17/Ecr17.vcxproj`
+  (iOS auto-globs via the podspec) and, if unit-testable, to
+  `package/cpp/tests/CMakeLists.txt`.
+- Windows: `package/windows/` (RNW New Arch DLL) + `example-windows/` (separate npm
+  app: RNW pins an older RN than the Expo example, so it is NOT a bun workspace).
+  See `package/windows/README.md` and the Windows section of docs/LESSON.md.
 - Commit messages: gitmoji-free conventional style; end with the Co-Authored-By
   trailer. Branch + PR per feature; keep CI green per push.

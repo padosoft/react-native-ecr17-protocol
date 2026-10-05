@@ -1,0 +1,41 @@
+{
+	"name": "example-windows",
+	"version": "1.0.0",
+	"private": true,
+	"scripts": {
+		"start": "react-native start",
+		"windows": "react-native run-windows",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@padosoft/react-native-ecr17": "file:../package",
+		"react": "19.2.3",
+		"react-native": "0.84.1",
+		"react-native-nitro-modules": "0.37.1",
+		"react-native-windows": "0.84.0"
+	},
+	"devDependencies": {
+		"@babel/core": "^7.25.2",
+		"@babel/preset-env": "^7.25.3",
+		"@babel/runtime": "^7.25.0",
+		"@react-native-community/cli": "20.1.0",
+		"@react-native-community/cli-platform-android": "20.1.0",
+		"@react-native-community/cli-platform-ios": "20.1.0",
+		"@react-native/babel-preset": "0.84.1",
+		"@react-native/metro-config": "0.84.1",
+		"@react-native/typescript-config": "0.84.1",
+		"@types/react": "^19.2.0",
+		"typescript": "~6.0.3",
+		"@rnx-kit/jest-preset": "^0.3.1"
+	},
+	"engines": {
+		"node": ">= 22.11.0"
+	},
+	"react-native-windows": {
+		"init-windows": {
+			"name": "Ecr17Example",
+			"namespace": "Ecr17Example",
+			"template": "cpp-app"
+		}
+	}
+}
