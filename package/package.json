@@ -52,10 +52,10 @@
 	},
 	"devDependencies": {
 		"@types/react": "19.2.0",
-		"nitrogen": "0.35.8",
+		"nitrogen": "0.37.1",
 		"react": "19.2.3",
-		"react-native-builder-bob": "^0.41.0",
-		"react-native-nitro-modules": "0.35.8",
+		"react-native-builder-bob": "^0.43.1",
+		"react-native-nitro-modules": "0.37.1",
 		"typescript": "^6.0.3"
 	},
 	"peerDependencies": {

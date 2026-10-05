@@ -43,6 +43,7 @@ _site/
 .docmd-search/*
 !.docmd-search/config.json
 docs-site/docs/.docmd-search/
+docs-site/docs/_docmd-search/
 jspm_packages/
 
 # Snowpack dependency directory (https://snowpack.dev/)

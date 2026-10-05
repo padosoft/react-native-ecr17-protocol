@@ -19,9 +19,9 @@
 		"example"
 	],
 	"devDependencies": {
-		"@biomejs/biome": "^2.4.16",
-		"@changesets/changelog-github": "^0.7.0",
-		"@changesets/cli": "^2.31.0",
+		"@biomejs/biome": "^2.5.15",
+		"@changesets/changelog-github": "^1.0.1",
+		"@changesets/cli": "^3.0.3",
 		"@padosoft/config": "^1.2.2",
 		"typescript": "^6.0.3"
 	}
