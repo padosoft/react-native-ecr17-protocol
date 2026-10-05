@@ -193,12 +193,15 @@ enough: React Native autolinking finds `Ecr17Kit.podspec`. Android needs nothing
 
 ### 🪟 Windows
 
-On **React Native Windows** (New Architecture), add the autolink helper to the
-app's `react-native.config.js`. `react-native-nitro-modules` has no Windows
-project, so this package's DLL installs Nitro itself:
+On **React Native Windows** (New Architecture), `react-native-nitro-modules` has no
+Windows project. The app adds one Nitro host,
+[`@padosoft/react-native-nitro-windows`](https://github.com/padosoft/react-native-support/tree/main/packages/react-native-nitro-windows)
+(⚠️ not published yet: link it from a react-native-support checkout). It installs
+Nitro and compiles this package's Windows C++ and the Kit's. In the app's
+`react-native.config.js`:
 
 ```js
-const { windowsAppDependencies } = require('@padosoft/react-native-ecr17/windows-autolink');
+const { windowsAppDependencies } = require('@padosoft/react-native-nitro-windows');
 
 module.exports = {
   dependencies: windowsAppDependencies(),
@@ -206,8 +209,8 @@ module.exports = {
 ```
 
 Then `npx react-native autolink-windows && npx react-native run-windows`. The
-transport is C++ (Winsock) with the same write-free pre-send liveness probe as
-Android. Details:
+transport is the Kit's C++ `WinsockTransport`, with the same write-free pre-send
+liveness probe as Android. Details:
 [package/windows/README.md](https://github.com/padosoft/react-native-ecr17-protocol/blob/main/package/windows/README.md)
 · example app:
 [example-windows/](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/example-windows).

@@ -70,8 +70,11 @@ still has open, valid reviewer comments.
   (VS 2022 Build Tools / VS 2026 + Windows SDK in `D:\Windows Kits\10`):
   1. Kit tests, Winsock transport included (no Nitro or RNW needed):
      `cmake -S kit -B build-win && cmake --build build-win --config Release && ctest --test-dir build-win -C Release --output-on-failure`
-  2. RNW build + deploy of `example-windows` (compiles Ecr17.dll: Nitro install shim +
-     shared C++ core + transport; builds and registers the MSIX package):
+  2. RNW build + deploy of `example-windows` (compiles the Nitro host DLL from
+     `@padosoft/react-native-nitro-windows`, which collects this package's `nitroWindows`
+     sources and the Kit's; builds and registers the MSIX package). The host is not
+     published yet: `example-windows` links it from `../../react-native-support`, so clone
+     react-native-support next to this repo first:
      `cd example-windows && npm install && npx react-native run-windows --arch x64`.
      The auto-launch at the end fails here (RNW calls `Get-AppxPackage` through PowerShell 7,
      whose Appx module can't load); the app IS deployed — launch it with
@@ -143,14 +146,16 @@ still has open, valid reviewer comments.
 - C++20. Kit headers are included as `<Ecr17Kit/Name.hpp>` (from `kit/cpp/include`). A new
   `kit/cpp/src/*.cpp` goes in `kit/CMakeLists.txt`; the pod, the binding's Android CMake and
   the Windows vcxproj pick it up by glob. A new test goes in `kit/cpp/tests/CMakeLists.txt`.
-  New `package/cpp/**/*.cpp` (binding only) MUST be added to `package/android/CMakeLists.txt`
-  AND `package/windows/Ecr17/Ecr17.vcxproj` (iOS auto-globs via `nitro_module`).
+  New `package/cpp/**/*.cpp` (binding only) MUST be added to `package/android/CMakeLists.txt`;
+  iOS globs via `nitro_module`, Windows via the `nitroWindows.sources` globs in package.json
+  (a new folder needs a new glob).
 - Build tooling from `@padosoft/native-modules` (not on npm yet: private GitHub Packages,
   installed with `GESCAT_NPM_TOKEN`): the podspec is one `nitro_module(…, kit: "Ecr17Kit")`
   call, `android/build.gradle` applies `nitro-module.gradle`. Keep the native namespace in
   `react-native.config.js` (`android.packageName`): autolinking can't read it from
   `ext.nitroModule`.
-- Windows: `package/windows/` (RNW New Arch DLL) + `example-windows/` (separate npm
+- Windows: `package/windows/` (the Windows HybridObject + registration, compiled by the app's
+  Nitro host) + `example-windows/` (separate npm
   app: RNW pins an older RN than the Expo example, so it is NOT a bun workspace).
   See `package/windows/README.md` and the Windows section of docs/LESSON.md.
 - Commit messages: gitmoji-free conventional style; end with the Co-Authored-By

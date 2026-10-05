@@ -127,8 +127,16 @@
   CI catches it.
 
 ## Windows (React Native Windows, New Architecture)
+- **Since the Kit split (2026-10-05) this package ships no Windows project.** The app's Nitro
+  host, `@padosoft/react-native-nitro-windows` (react-native-support, NOT published yet:
+  `example-windows` links it from `../../react-native-support`), does what the old Ecr17 DLL
+  did (below): it compiles the `nitroWindows` sources of every Nitro package + their Kits'
+  `nativeKit.windows` sources, and calls `registerEcr17HybridObjects()` before installing
+  Nitro. Its own vcxproj links no `ws2_32`: the Kit's WinsockTransport.cpp links it with
+  `#pragma comment(lib, ...)`. The notes below describe the original DLL; the mechanics
+  (install, shims, registry) moved into the host unchanged.
 - Approach copied from NitromelonDB PR #65. **Nitro has no Windows project**
-  (mrousavy/nitro#168), so `package/windows/Ecr17` (a WinAppSDK DLL) provides the
+  (mrousavy/nitro#168), so `package/windows/Ecr17` (a WinAppSDK DLL) provided the
   `NitroModules` TurboModule (`REACT_MODULE(NitroModules)` + sync `install()`):
   `TryGetOrCreateContextRuntime(ctx)` + `CallInvokerDispatcher(ctx.CallInvoker())`
   → `margelo::nitro::install`, then `HybridObjectRegistry::registerHybridObjectConstructor`

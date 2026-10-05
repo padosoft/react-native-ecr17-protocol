@@ -7,7 +7,7 @@ Project("{C7167F0D-BC9F-4E6E-AFE1-012C56B48DB5}") = "Ecr17Example.Package", "Ecr
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Ecr17Example", "Ecr17Example\Ecr17Example.vcxproj", "{E2184B0D-AF48-4A10-999B-74D1DBE6BE4D}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Ecr17", "..\node_modules\@padosoft\react-native-ecr17\windows\Ecr17\Ecr17.vcxproj", "{D4D22C00-CCAE-4C1E-A797-1959953A927E}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NitroWindows", "..\node_modules\@padosoft\react-native-nitro-windows\windows\NitroWindows\NitroWindows.vcxproj", "{B154B8DF-295A-48AB-9690-90D82F1406A2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -55,18 +55,18 @@ Global
 		{E2184B0D-AF48-4A10-999B-74D1DBE6BE4D}.Release|ARM64.ActiveCfg = Release|ARM64
 		{E2184B0D-AF48-4A10-999B-74D1DBE6BE4D}.Release|ARM64.Build.0 = Release|ARM64
 		{E2184B0D-AF48-4A10-999B-74D1DBE6BE4D}.Release|ARM64.Deploy.0 = Release|ARM64
-		{D4D22C00-CCAE-4C1E-A797-1959953A927E}.Debug|x64.ActiveCfg = Debug|x64
-		{D4D22C00-CCAE-4C1E-A797-1959953A927E}.Debug|x64.Build.0 = Debug|x64
-		{D4D22C00-CCAE-4C1E-A797-1959953A927E}.Debug|x86.ActiveCfg = Debug|Win32
-		{D4D22C00-CCAE-4C1E-A797-1959953A927E}.Debug|x86.Build.0 = Debug|Win32
-		{D4D22C00-CCAE-4C1E-A797-1959953A927E}.Debug|ARM64.ActiveCfg = Debug|ARM64
-		{D4D22C00-CCAE-4C1E-A797-1959953A927E}.Debug|ARM64.Build.0 = Debug|ARM64
-		{D4D22C00-CCAE-4C1E-A797-1959953A927E}.Release|x64.ActiveCfg = Release|x64
-		{D4D22C00-CCAE-4C1E-A797-1959953A927E}.Release|x64.Build.0 = Release|x64
-		{D4D22C00-CCAE-4C1E-A797-1959953A927E}.Release|x86.ActiveCfg = Release|Win32
-		{D4D22C00-CCAE-4C1E-A797-1959953A927E}.Release|x86.Build.0 = Release|Win32
-		{D4D22C00-CCAE-4C1E-A797-1959953A927E}.Release|ARM64.ActiveCfg = Release|ARM64
-		{D4D22C00-CCAE-4C1E-A797-1959953A927E}.Release|ARM64.Build.0 = Release|ARM64
+		{B154B8DF-295A-48AB-9690-90D82F1406A2}.Debug|x64.ActiveCfg = Debug|x64
+		{B154B8DF-295A-48AB-9690-90D82F1406A2}.Debug|x64.Build.0 = Debug|x64
+		{B154B8DF-295A-48AB-9690-90D82F1406A2}.Debug|x86.ActiveCfg = Debug|Win32
+		{B154B8DF-295A-48AB-9690-90D82F1406A2}.Debug|x86.Build.0 = Debug|Win32
+		{B154B8DF-295A-48AB-9690-90D82F1406A2}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{B154B8DF-295A-48AB-9690-90D82F1406A2}.Debug|ARM64.Build.0 = Debug|ARM64
+		{B154B8DF-295A-48AB-9690-90D82F1406A2}.Release|x64.ActiveCfg = Release|x64
+		{B154B8DF-295A-48AB-9690-90D82F1406A2}.Release|x64.Build.0 = Release|x64
+		{B154B8DF-295A-48AB-9690-90D82F1406A2}.Release|x86.ActiveCfg = Release|Win32
+		{B154B8DF-295A-48AB-9690-90D82F1406A2}.Release|x86.Build.0 = Release|Win32
+		{B154B8DF-295A-48AB-9690-90D82F1406A2}.Release|ARM64.ActiveCfg = Release|ARM64
+		{B154B8DF-295A-48AB-9690-90D82F1406A2}.Release|ARM64.Build.0 = Release|ARM64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

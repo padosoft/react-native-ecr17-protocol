@@ -1,4 +1,4 @@
-// No pch.h: plain Winsock + Nitro (no WinRT).
+// Compiled by the app's Nitro host (@padosoft/react-native-nitro-windows), see package.json "nitroWindows".
 #include "HybridEcr17TransportWindows.hpp"
 
 #include <NitroModules/ArrayBuffer.hpp>

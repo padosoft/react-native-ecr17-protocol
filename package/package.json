@@ -34,15 +34,33 @@
 		"ios/**/*.mm",
 		"ios/**/*.cpp",
 		"ios/**/*.swift",
-		"windows-autolink.js",
-		"scripts/windows-nitro-shims.mjs",
-		"windows/Ecr17.sln",
-		"windows/ExperimentalFeatures.props",
-		"windows/NuGet.Config",
-		"windows/Ecr17/*.{h,hpp,cpp,idl,def,rc,vcxproj}",
+		"windows/*.{hpp,cpp}",
 		"*.podspec",
 		"README.md"
 	],
+	"nitroWindows": {
+		"sources": [
+			"windows/*.cpp",
+			"cpp/Ecr17Client/*.cpp",
+			"cpp/Transport/*.cpp",
+			"nitrogen/generated/shared/c++/*.cpp"
+		],
+		"includeDirs": [
+			"windows",
+			"cpp",
+			"cpp/Ecr17Client",
+			"nitrogen/generated/shared/c++"
+		],
+		"headers": [
+			"windows/Ecr17Windows.hpp"
+		],
+		"register": [
+			"margelo::nitro::ecr17::registerEcr17HybridObjects"
+		],
+		"kits": [
+			"@padosoft/ecr17-kit"
+		]
+	},
 	"workspaces": [
 		"example"
 	],
@@ -68,9 +86,15 @@
 		"typescript": "^6.0.3"
 	},
 	"peerDependencies": {
+		"@padosoft/react-native-nitro-windows": "*",
 		"react": "*",
 		"react-native": "*",
 		"react-native-nitro-modules": "*"
+	},
+	"peerDependenciesMeta": {
+		"@padosoft/react-native-nitro-windows": {
+			"optional": true
+		}
 	},
 	"eslintConfig": {
 		"root": true,
