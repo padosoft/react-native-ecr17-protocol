@@ -9,8 +9,6 @@
         "@changesets/changelog-github": "^1.0.1",
         "@changesets/cli": "^3.0.3",
         "@padosoft/config": "^1.2.2",
-        "@padosoft/expo": "^1.11.0",
-        "@padosoft/native-modules": "^1.5.0",
         "typescript": "^6.0.3",
       },
     },
@@ -48,6 +46,7 @@
         "react-native-worklets": "0.11.4",
       },
       "devDependencies": {
+        "@padosoft/expo": "^1.11.0",
         "@types/react": "~19.2.2",
         "typescript": "~6.0.3",
       },
@@ -55,13 +54,14 @@
     "kit": {
       "name": "@padosoft/ecr17-kit",
       "version": "1.0.0",
+      "dependencies": {
+        "@padosoft/native-modules": "^1.5.0",
+      },
       "peerDependencies": {
         "@padosoft/expo": ">=1.11.0",
-        "@padosoft/native-modules": ">=1.5.0",
       },
       "optionalPeers": [
         "@padosoft/expo",
-        "@padosoft/native-modules",
       ],
     },
     "package": {
@@ -69,6 +69,7 @@
       "version": "2.0.1",
       "dependencies": {
         "@padosoft/ecr17-kit": "^1.0.0",
+        "@padosoft/native-modules": "^1.5.0",
       },
       "devDependencies": {
         "@types/react": "19.2.0",
@@ -79,14 +80,10 @@
         "typescript": "^6.0.3",
       },
       "peerDependencies": {
-        "@padosoft/native-modules": ">=1.5.0",
         "react": "*",
         "react-native": "*",
         "react-native-nitro-modules": "*",
       },
-      "optionalPeers": [
-        "@padosoft/native-modules",
-      ],
     },
   },
   "packages": {

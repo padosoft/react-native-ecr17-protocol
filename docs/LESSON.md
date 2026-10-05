@@ -254,8 +254,14 @@
   `android.packageName`.
 - `@padosoft/native-modules` / `@padosoft/expo` are on the private GitHub Packages registry
   only (not npm yet). CI strips them (`scripts/strip-private-deps.mjs`) except where the
-  native build needs them (android-build, which then needs `GESCAT_NPM_TOKEN`). They are
-  OPTIONAL peers, otherwise npm in `example-windows` auto-installs them and 404s.
+  native build needs them (android-build, which then needs `GESCAT_NPM_TOKEN`).
+  `@padosoft/native-modules` is a regular DEPENDENCY of the binding and the Kit (it has no
+  deps or peers of its own). `@padosoft/expo` stays an OPTIONAL peer of the Kit: it peers on
+  `expo`, so as a dependency it would drag Expo into bare and Windows apps.
+- npm does not install the dependencies of a `file:` linked package into the app: they
+  resolve from the linked package's own folder upward (here: the root `bun install`). So
+  `example-windows` needs no registry config for the private @padosoft packages — and an
+  `.npmrc` with `${GESCAT_NPM_TOKEN}` would make npm FAIL for anyone without the variable.
 - npm writes `package-lock.json` with `package.json`'s indentation: after editing a tab-indented
   `package.json`, a lockfile that used 2 spaces is rewritten whole. Re-serialize it with 2
   spaces to keep the diff to the real change.

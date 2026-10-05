@@ -90,7 +90,8 @@ On Windows the target also contains `WinsockTransport` and links `ws2_32`.
 ### React Native
 
 Add [`@padosoft/react-native-ecr17`](../package). For iOS, it needs this pod in
-the app's Podfile. Add the config plugin:
+the app's Podfile. Add the config plugin, which uses `@padosoft/expo` (an optional
+peer: install it in Expo apps):
 
 ```json
 { "plugins": ["@padosoft/ecr17-kit"] }

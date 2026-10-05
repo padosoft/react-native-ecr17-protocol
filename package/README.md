@@ -164,15 +164,16 @@ first-class:
 - **React Native** 0.76+ (new architecture) — the example uses Expo SDK 57 / RN 0.86
 - **React Native Windows** 0.84+ (New Architecture) for Windows — see [Windows](#-windows)
 - **react-native-nitro-modules** (peer dependency)
-- **@padosoft/native-modules** (peer dependency: the shared native build helpers used by
-  the podspec and `android/build.gradle`). ⚠️ Not on npm yet: it is on the padosoft GitHub
-  Packages registry for now.
+- The protocol engine, [`@padosoft/ecr17-kit`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/kit),
+  and the native build helpers, `@padosoft/native-modules`, are dependencies: they install
+  with the package. ⚠️ Neither is on npm yet (the helpers are on the padosoft GitHub Packages
+  registry for now).
 - A Nexi Group ECR17-compatible terminal configured for **LAN integration**
 
 ## 📦 Installation
 
 ```bash
-bun add @padosoft/react-native-ecr17 @padosoft/ecr17-kit @padosoft/native-modules react-native-nitro-modules
+bun add @padosoft/react-native-ecr17 @padosoft/ecr17-kit react-native-nitro-modules
 cd ios && pod install   # iOS
 ```
 
@@ -181,7 +182,7 @@ cd ios && pod install   # iOS
 The protocol engine is a separate, React-free C++ library,
 [`@padosoft/ecr17-kit`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/kit)
 (also usable from native apps). On iOS its pod must be in the app's Podfile. With Expo,
-add its config plugin to `app.json`:
+add its config plugin to `app.json` (it uses `@padosoft/expo`, so add that too):
 
 ```json
 { "expo": { "plugins": ["@padosoft/ecr17-kit"] } }
