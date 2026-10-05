@@ -57,15 +57,22 @@ re-apply the custom resolver and the SDK pin afterwards.
 ## Verifying a native change
 
 There is no Windows CI job. After changing `package/windows/**` or `package/cpp/**`,
-build this app and run the Winsock transport tests locally. Building only the app
-project compiles and links `Ecr17.dll` without the MSIX packaging tools:
+build and run this app and run the Winsock transport tests locally.
+
+`npm run windows` builds and deploys the app as an MSIX package. That needs Visual
+Studio's "Windows application development" workload (MSIX packaging tools). The built
+exe can't be launched on its own, outside the package.
+
+If the build and deploy succeed but the final launch fails with a `Get-AppxPackage`
+error, PowerShell 7 can't load the Appx module. The app is installed anyway: start
+the app (Ecr17Example) from the Start menu.
+
+Without the MSIX tools you can still compile and link everything (including
+`Ecr17.dll`) by building only the app project:
 
 ```bash
 msbuild windows/Ecr17Example.sln /t:Ecr17Example /restore /m /p:Configuration=Debug /p:Platform=x64
 ```
-
-Running the app needs a deployed MSIX package (`npm run windows`), which needs the
-Visual Studio MSIX packaging component. The built exe can't be launched on its own.
 
 ```bash
 cmake -S ../package/windows/tests -B ../build-win
