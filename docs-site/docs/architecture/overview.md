@@ -5,12 +5,13 @@ description: High-level architecture of the React Native Nitro ECR17 module.
 
 # Architecture Overview
 
-The library keeps protocol behavior in shared C++ and uses platform-native networking only for TCP I/O.
+The library keeps protocol behavior in shared C++ and uses platform-native networking only for TCP I/O. The C++ lives in two packages: **`@padosoft/ecr17-kit`** (`kit/`), the React-free protocol library that native apps can use too, and **`@padosoft/react-native-ecr17`** (`package/`), the Nitro binding.
 
 ```mermaid
 flowchart TB
   JS[TypeScript API] --> Nitro[Nitro HybridObject]
-  Nitro --> Client[HybridEcr17Client]
+  Nitro --> Hybrid[HybridEcr17Client]
+  Hybrid --> Client[Ecr17Kit Ecr17Client]
   Client --> Session[Ecr17Session]
   Session --> Codec[PacketCodec]
   Session --> Protocol[Ecr17Protocol builders]
@@ -18,19 +19,23 @@ flowchart TB
   Session --> Adapter[NativeTransportAdapter]
   Adapter --> Android[Kotlin TCP transport]
   Adapter --> IOS[Swift TCP transport]
+  Adapter --> Windows[Ecr17Kit WinsockTransport]
 ```
 
 ## Layers
 
 - `package/src`: TypeScript exports, specs, helper factory, and public types.
-- `package/cpp/Lcr`: LRC calculation and mode handling.
-- `package/cpp/PacketCodec`: ECR17 framing and decode rules.
-- `package/cpp/Ecr17Protocol`: request builders.
-- `package/cpp/Ecr17Response`: response parsers.
-- `package/cpp/Session`: ACK/NAK, progress, receipts, retransmit, and timeout orchestration.
-- `package/cpp/Ecr17Client`: Nitro C++ HybridObject implementation.
-- `package/android` and `package/ios`: platform TCP transports.
+- `kit/cpp` (`Ecr17Kit/…` headers):
+  - `Lcr`: LRC calculation and mode handling.
+  - `PacketCodec`: ECR17 framing and decode rules.
+  - `Ecr17Protocol`: request builders.
+  - `Ecr17Response`: response parsers.
+  - `Ecr17Session`: ACK/NAK, progress, receipts, retransmit, and timeout orchestration.
+  - `Ecr17Client`: auto-connect, the pre-send liveness probe, and the money-safe retry policy.
+- `kit/windows`: the Winsock transport.
+- `package/cpp/Ecr17Client`: the Nitro HybridObject, mapping the JS types onto the Kit's `Ecr17Client`.
+- `package/android` and `package/ios`: the Kotlin and Swift TCP transports.
 
 ::: callout info "Why C++"
-C++ gives one tested protocol engine for both platforms. Kotlin and Swift stay focused on socket lifecycle and byte delivery.
+C++ gives one tested protocol engine for every platform, and a library that fully native apps can use without React Native. Kotlin and Swift stay focused on socket lifecycle and byte delivery.
 :::

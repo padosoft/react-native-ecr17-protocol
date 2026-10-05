@@ -64,8 +64,8 @@ const client = createEcr17Client({
 ## How it works
 
 - `Ecr17.dll` implements `NitroModules.install()`. It runs Nitro's `install()` with RNW's JSI runtime and `CallInvoker`.
-- `Ecr17Client` is the shared C++ `HybridEcr17Client`, the same code as on iOS and Android.
-- `Ecr17Transport` is `HybridEcr17TransportWindows`, a Winsock TCP transport written in C++ (iOS uses Swift, Android uses Kotlin).
+- `Ecr17Client` is the shared C++ `HybridEcr17Client` over the Kit's `Ecr17Client`, the same code as on iOS and Android.
+- `Ecr17Transport` is `HybridEcr17TransportWindows`, the Nitro face of the Kit's C++ `WinsockTransport` (iOS uses Swift, Android uses Kotlin).
 - The DLL compiles Nitro's C++ runtime from the app's `node_modules/react-native-nitro-modules`.
 - Before compiling, MSBuild runs `scripts/windows-nitro-shims.mjs`, which writes `<NitroModules/…>` header shims because MSVC has no header map.
 
@@ -87,7 +87,7 @@ Nothing changes in the retry policy: a payment, reversal or pre-auth is never re
 
 `example-windows/` in the repository is a small RNW console app (status, totals, last result, one payment). It is a separate npm project, because RNW 0.84 pins React Native 0.84.1 while the Expo example uses a newer React Native.
 
-`package/windows/tests` is a standalone CMake + GoogleTest suite that runs the Winsock transport against a loopback server: drop detected before send, no bytes written by the probe, none consumed, one disconnect signal per drop, and a fast probe. Windows has no CI job, so run it and the `example-windows` build locally after native changes.
+The Kit's tests (`cmake -S kit`) run the Winsock transport against a loopback server on Windows, with no Nitro or React Native Windows needed: drop detected before send, no bytes written by the probe, none consumed, one disconnect signal per drop, and a fast probe. Windows has no CI job, so run it and the `example-windows` build locally after native changes.
 
 ## Status
 

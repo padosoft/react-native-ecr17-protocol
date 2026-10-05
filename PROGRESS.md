@@ -66,6 +66,18 @@ build job. Org disallows making the package public anyway.
 ### CI note
 - `cpp-tests.yml` uses actions/checkout@v4 (Node20 deprecation warning) → bump to @v5 in Phase 8.
 
+## Kit split — `feat/ecr17-native-kits` (stacked on #23), 2026-10-05
+- [x] `kit/` = `@padosoft/ecr17-kit`: React-free core (`padosoft::ecr17`) + `Ecr17Client`
+      (auto-connect, pre-send probe, money-safe retry) + `WinsockTransport`. Kit tests 100/100
+      on macOS with ASan/UBSan (15 new client tests; a RetryPolicy mutation fails 2 of them).
+- [x] `package/` = thin Nitro binding over the Kit; podspec = `nitro_module(kit: "Ecr17Kit")`,
+      Android = `nitro-module.gradle` (@padosoft/native-modules 1.5, GitHub Packages).
+- [x] iOS: Expo example prebuild + `pod install` + `xcodebuild` (simulator) BUILD SUCCEEDED, no
+      Ecr17/Ecr17Kit warnings. Not run on a simulator/terminal yet.
+- [ ] Android: `android-build` job (needs GESCAT_NPM_TOKEN able to read padosoft packages).
+- [ ] Windows: `cmake -S kit` (Winsock tests) + `example-windows` build/deploy/smoke test.
+- [ ] Next: PR B — Windows through `@padosoft/react-native-nitro-windows` (unpublished: linked).
+
 ## Native impl spec (turnkey — all APIs confirmed from generated headers)
 Transport C++ spec (generated): `connect(string host,double port,double timeoutMs)->Promise<void>`,
 `disconnect()`, `isConnected()->bool`, `send(shared_ptr<ArrayBuffer>)`,

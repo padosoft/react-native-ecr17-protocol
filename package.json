@@ -15,6 +15,7 @@
 		"check": "npm --prefix docs-site run check"
 	},
 	"workspaces": [
+		"kit",
 		"package",
 		"example"
 	],
@@ -23,6 +24,8 @@
 		"@changesets/changelog-github": "^1.0.1",
 		"@changesets/cli": "^3.0.3",
 		"@padosoft/config": "^1.2.2",
+		"@padosoft/expo": "^1.11.0",
+		"@padosoft/native-modules": "^1.5.0",
 		"typescript": "^6.0.3"
 	}
 }

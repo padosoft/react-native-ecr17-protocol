@@ -11,22 +11,31 @@ The module is built with Nitro Modules and requires React Native new architectur
 
 - React Native 0.76 or newer.
 - `react-native-nitro-modules` installed as a peer dependency.
+- `@padosoft/ecr17-kit`, the C++ protocol library (a dependency), and `@padosoft/native-modules`, the native build helpers (a peer dependency for iOS and Android). ⚠️ They are not on npm yet.
 - iOS, Android or Windows native build environments for the target app (Windows: React Native Windows 0.84+, see [Windows](/windows)).
 - A Nexi Group ECR17-compatible terminal configured for LAN integration.
 
 ## Package install
 
 ```bash
-npm install react-native-ecr17 react-native-nitro-modules
+npm install @padosoft/react-native-ecr17 @padosoft/ecr17-kit @padosoft/native-modules react-native-nitro-modules
 ```
 
 For Bun users:
 
 ```bash
-bun add react-native-ecr17 react-native-nitro-modules
+bun add @padosoft/react-native-ecr17 @padosoft/ecr17-kit @padosoft/native-modules react-native-nitro-modules
 ```
 
 ## iOS
+
+The protocol library is its own pod, `Ecr17Kit`. With Expo, add its config plugin to `app.json`, then prebuild:
+
+```json
+{ "expo": { "plugins": ["@padosoft/ecr17-kit"] } }
+```
+
+In a bare app, keeping `@padosoft/ecr17-kit` among the direct dependencies is enough: autolinking finds `Ecr17Kit.podspec`.
 
 ```bash
 cd ios

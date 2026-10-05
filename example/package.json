@@ -4,6 +4,7 @@
 	"version": "1.0.0",
 	"dependencies": {
 		"@expo/ui": "~57.0.21",
+		"@padosoft/ecr17-kit": "^1.0.0",
 		"@padosoft/react-native-ecr17": "workspace:*",
 		"expo": "~57.0.26",
 		"expo-constants": "~57.0.20",

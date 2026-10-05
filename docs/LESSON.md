@@ -23,13 +23,13 @@
   `%LOCALAPPDATA%\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.POSIX.UCRT_*\mingw64\bin\g++.exe`
   (installed via `winget install BrechtSanders.WinLibs.POSIX.UCRT`). Compile the
   unit-testable core into a throwaway harness for a real local RED→GREEN check:
-  `g++ -std=c++20 -I package/cpp -I package/cpp/tests/stubs <harness>.cpp <core>.cpp`.
+  `g++ -std=c++20 -I kit/cpp/include <harness>.cpp kit/cpp/src/*.cpp`.
   ⚠️ The preinstalled MSVC (VS18) is broken — its STL `include/` dir is missing, so
   `cl` can't compile; use g++. ⚠️ Avira quarantines a freshly-built `.exe`
-  (false positive) → add a one-time AV exclusion for the build dir. No cmake/gtest
-  locally, so the full GoogleTest suite still runs in **CI** (`package/cpp/tests`,
-  Ubuntu). Native Swift/Kotlin + Nitro-integrated C++ are **not** locally
-  compilable → verified only by the Android build CI job.
+  (false positive) → add a one-time AV exclusion for the build dir. The full GoogleTest
+  suite is `cmake -S kit` (CI: `cpp-tests`, Ubuntu). Native Swift/Kotlin + the
+  Nitro-integrated C++ are not in it: Android via the Android build CI job, iOS by
+  building the Expo example on a Mac.
 - `copilot` CLI present for the local review loop.
 - `nitrogen` runs via `./node_modules/.bin/nitrogen` (needs only Node/Bun).
   `nitrogen/generated/**` is **gitignored** (regenerated, not committed).
@@ -139,7 +139,7 @@
   `platforms.windows = null` so the RNW CLI doesn't look for Nitro's missing vcxproj.
 - The transport spec is `{ios: swift, android: kotlin}`, but nitrogen still emits the
   shared C++ `HybridEcr17TransportSpec` → Windows implements it directly in C++
-  (`HybridEcr17TransportWindows`, Winsock). Its probe is `recv(MSG_PEEK)` after an instant (0 ms)
+  (`HybridEcr17TransportWindows`, a thin wrapper over the Kit's `WinsockTransport`). Its probe is `recv(MSG_PEEK)` after an instant (0 ms)
   `select` — no PushbackInputStream needed, still write-free/non-consuming. Per-connection
   state object so a stale reader from an old socket can't flip a new connection.
 - MSVC has no `<NitroModules/…>` header map → `package/scripts/windows-nitro-shims.mjs`
@@ -218,13 +218,49 @@
   `package.json` `files`, which can leave the package unlinked and the `.so`
   unloaded at runtime. The reference Nitro module (corasan/image-compressor) ships
   the same file; runtime load is verified only by running the example app.
-- Android `package/android/CMakeLists.txt` lists C++ sources **explicitly** — every
-  new `package/cpp/**/*.cpp` MUST be added there or it won't link (undefined symbols).
-- iOS `package/Ecr17.podspec` globs `cpp/**/*.{hpp,cpp}` — new C++ auto-included.
+- Android `package/android/CMakeLists.txt` lists the binding's C++ sources **explicitly**
+  (every new `package/cpp/**/*.cpp` MUST be added there) and globs the Kit's
+  `cpp/src/*.cpp`, found with `node --print require.resolve('@padosoft/ecr17-kit/package.json')`.
+- iOS: `nitro_module` globs `cpp/**/*.{hpp,cpp}` of the binding; the Kit is its own pod.
 - C++20 on both; Android NDK provides POSIX sockets in libc (no extra link lib).
-- Include convention: cross-unit includes are subdir-qualified from the `../cpp`
-  root, e.g. `#include "Lcr/Lcr.hpp"`, `#include "Ecr17Client/HybridEcr17Client.hpp"`
-  (the client impl file is named after its Nitro class — see Build wiring).
+- Include convention: the Kit's headers are `<Ecr17Kit/Name.hpp>`; the binding's are
+  subdir-qualified from `package/cpp` (`"Ecr17Client/HybridEcr17Client.hpp"`).
+
+## Kit split (`kit/` = @padosoft/ecr17-kit) — 2026-10-05
+- The protocol core + `Ecr17Client` (auto-connect, pre-send probe, money-safe retry) moved
+  out of Nitro into `kit/`, namespace `padosoft::ecr17`. It needs its own `LrcMode`: in the
+  binding's namespace the name is taken by nitrogen's generated enum, so the binding uses
+  `namespace kit = padosoft::ecr17;` and never `using namespace` both (PaymentRequest,
+  TokenizationRequest, ConnectionState… exist on both sides).
+- The connect/retry orchestration used to be in `HybridEcr17Client`, untested except for
+  `RetryPolicy`. In the Kit it is unit-tested against FakeTransport, including a test that
+  replays EVERY command against a drop. A deliberate mutation of `shouldRetryAfterReconnect`
+  (dropping `safeToRetry`) fails two tests: keep it that way.
+- JS numbers → Kit ints go through `toInt` (throws on NaN/±inf/out-of-range instead of the
+  undefined behaviour of a plain cast). Fractions are still truncated, as before: an amount
+  computed with float math (`0.29 * 100 = 28.999…`) is the CALLER's problem to round.
+- **CocoaPods + a C++-only Kit pod**: a Swift pod (the Nitro module) depending on a pod that
+  doesn't define a module fails `pod install` ("does not define modules"). `DEFINES_MODULE=YES`
+  with the generated module map works. A custom `s.module_map` with a relative `umbrella`
+  dir does NOT: CocoaPods copies the map to `Target Support Files/`, where the path no longer
+  resolves (48× "umbrella directory not found").
+- `header_mappings_dir = "cpp/include"` puts the headers at
+  `Pods/Headers/Public/Ecr17Kit/Ecr17Kit/*.hpp`, so consumers include `<Ecr17Kit/…>` exactly
+  as with CMake.
+- RN autolinking links `Ecr17Kit.podspec` by itself when the app lists `@padosoft/ecr17-kit`
+  as a direct dependency; the Kit's Expo plugin covers apps that only have it transitively.
+- `nitro-module.gradle` (from @padosoft/native-modules) keeps the namespace in
+  `ext.nitroModule`, which autolinking can't read: `react-native.config.js` must declare
+  `android.packageName`.
+- `@padosoft/native-modules` / `@padosoft/expo` are on the private GitHub Packages registry
+  only (not npm yet). CI strips them (`scripts/strip-private-deps.mjs`) except where the
+  native build needs them (android-build, which then needs `GESCAT_NPM_TOKEN`). They are
+  OPTIONAL peers, otherwise npm in `example-windows` auto-installs them and 404s.
+- npm writes `package-lock.json` with `package.json`'s indentation: after editing a tab-indented
+  `package.json`, a lockfile that used 2 spaces is rewritten whole. Re-serialize it with 2
+  spaces to keep the diff to the real change.
+- The Bash tool on macOS is zsh: an unquoted `$INC` is ONE argument (no word splitting);
+  use `${=INC}` or an array.
 
 ## ECR17 protocol facts (from docs/)
 - Status command code is lowercase `'s'` (0x73). Payment `'P'` request = 167 bytes.

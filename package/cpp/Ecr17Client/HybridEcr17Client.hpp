@@ -2,16 +2,20 @@
 
 #include <NitroModules/Promise.hpp>
 
+#include <Ecr17Kit/Ecr17Client.hpp>
+
+#include <functional>
 #include <memory>
 #include <mutex>
 
 #include "HybridEcr17ClientSpec.hpp"
 #include "HybridEcr17TransportSpec.hpp"
-#include "Session/Ecr17Session.hpp"
-#include "Transport/NativeTransportAdapter.hpp"
 
 namespace margelo::nitro::ecr17 {
 
+// The JS-facing client: maps the Nitro types to the Kit's Ecr17Client (which owns
+// the protocol, the auto-connect and the money-safe retry policy) and runs each
+// command on a Nitro worker thread. No protocol logic lives here.
 class HybridEcr17Client : public HybridEcr17ClientSpec {
    public:
     HybridEcr17Client() : HybridObject(TAG) {}
@@ -47,35 +51,18 @@ class HybridEcr17Client : public HybridEcr17ClientSpec {
     void setOnConnectionStateChange(const std::function<void(ConnectionState)>& callback) override;
 
    protected:
-    // Lazily creates the native transport (via the Nitro registry), the adapter
-    // and the session, and wires session events to the JS callbacks.
-    void ensureInit();
-    // Ensures an open connection, auto-connecting (and blocking the worker
-    // thread until ready) if needed. Throws if the connection fails.
-    void ensureConnected();
-    std::string cashRegisterIdOr(const std::optional<std::string>& override) const;
-    // Runs a transaction, attaching the tokenization 'U' additional-data message
-    // when `tokenization` is set (request must be built with withAdditionalData=true).
-    // On a mid-command disconnect with autoReconnect enabled, the socket is
-    // reconnected; the command is retried ONLY if `safeToRetry` (read-only ops),
-    // never for financial ops (a blind retry could double-charge — recover via
-    // sendLastResult / 'G' instead).
-    DecodedPacket runTransaction(const std::string& mainPayload,
-                                 const std::optional<TokenizationRequest>& tokenization,
-                                 bool safeToRetry);
-    void runAckOnly(const std::string& payload, bool safeToRetry);
+    // The Kit client for the current configuration, created on first use. Must run
+    // on the JS thread the first time on Android (see configure()).
+    std::shared_ptr<padosoft::ecr17::Ecr17Client> client();
+    // Runs `command` against the current client on a Nitro worker thread.
+    template <typename T, typename Command>
+    std::shared_ptr<margelo::nitro::Promise<T>> run(Command command);
 
     Ecr17Config config_;
 
-    // Serializes protocol exchanges: every public command runs on a Promise
-    // worker thread but they share one session_/transport_ and RX buffer, so
-    // concurrent commands must not interleave on the wire (or ACK each other's
-    // frames). Held for the duration of a single transaction's exchange.
-    std::mutex txMutex_;
-
-    std::shared_ptr<HybridEcr17TransportSpec> transport_;
-    std::shared_ptr<NativeTransportAdapter> adapter_;
-    std::unique_ptr<Ecr17Session> session_;
+    // Guards client_: configure() can replace it while a command still holds the old one.
+    std::mutex clientMutex_;
+    std::shared_ptr<padosoft::ecr17::Ecr17Client> client_;
 
     std::function<void(const ProgressEvent&)> onProgress_{};
     std::function<void(const ReceiptLine&)> onReceiptLine_{};

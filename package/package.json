@@ -26,7 +26,6 @@
 		"cpp",
 		"nitro.json",
 		"android/build.gradle",
-		"android/fix-prefab.gradle",
 		"android/gradle.properties",
 		"android/CMakeLists.txt",
 		"android/src",
@@ -56,6 +55,9 @@
 		"access": "public",
 		"registry": "https://registry.npmjs.org/"
 	},
+	"dependencies": {
+		"@padosoft/ecr17-kit": "^1.0.0"
+	},
 	"devDependencies": {
 		"@types/react": "19.2.0",
 		"nitrogen": "0.37.1",
@@ -65,9 +67,15 @@
 		"typescript": "^6.0.3"
 	},
 	"peerDependencies": {
+		"@padosoft/native-modules": ">=1.5.0",
 		"react": "*",
 		"react-native": "*",
 		"react-native-nitro-modules": "*"
+	},
+	"peerDependenciesMeta": {
+		"@padosoft/native-modules": {
+			"optional": true
+		}
 	},
 	"eslintConfig": {
 		"root": true,

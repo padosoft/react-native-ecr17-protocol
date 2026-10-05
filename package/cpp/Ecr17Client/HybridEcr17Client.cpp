@@ -3,6 +3,8 @@
 #include <NitroModules/HybridObjectRegistry.hpp>
 
 #include <chrono>
+#include <climits>
+#include <cmath>
 #include <ctime>
 #include <exception>
 #include <optional>
@@ -11,9 +13,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "Ecr17Protocol/Ecr17Protocol.hpp"
-#include "Ecr17Response/Ecr17Response.hpp"
-#include "Session/RetryPolicy.hpp"
+#include "Transport/NativeTransportAdapter.hpp"
 
 // Commands run on Nitro's C++ thread pool. On Android, those worker threads are
 // NOT attached to the JVM, and — even once attached — JNI `FindClass` on an
@@ -28,18 +28,18 @@
 
 namespace margelo::nitro::ecr17 {
 
+namespace kit = padosoft::ecr17;
+
 namespace {
 
 // Runs `fn` on Android under fbjni's ThreadScope::WithClassLoader, which attaches
 // the current thread to the JVM AND installs fbjni's cached app class loader for
 // the duration — so every JNI FindClass inside (including NitroModules' lazy
-// ArrayBuffer lookup) resolves app classes, not the system loader. On iOS (no JVM)
-// `fn` is just called directly. Returns whatever `fn` returns (incl. void) and
-// propagates exceptions, so the caller's try/catch and return-value logic is
-// unchanged. WithClassLoader takes a `std::function<void()>`, so on Android the
+// ArrayBuffer lookup) resolves app classes, not the system loader. Elsewhere `fn`
+// is just called. Returns whatever `fn` returns (incl. void) and propagates
+// exceptions: WithClassLoader takes a `std::function<void()>`, so on Android the
 // result is captured in a local and any exception via std::exception_ptr, then
-// rethrown after the scope. `fn` is a lambda, so a `return` inside it returns from
-// the lambda (not the caller) on BOTH platforms — safe in value-returning callers.
+// rethrown after the scope.
 template <typename Fn>
 auto runOnJvmThread(Fn&& fn) -> decltype(fn()) {
 #ifdef __ANDROID__
@@ -78,6 +78,95 @@ using margelo::nitro::Promise;
 
 namespace {
 
+// ---------- JS -> Kit ----------
+
+// JS numbers are doubles. Out-of-range or NaN would be undefined behaviour in a
+// plain cast: those throw instead. Fractions are truncated, as before.
+int toInt(double value, const char* field) {
+    if (!std::isfinite(value) || value < static_cast<double>(INT_MIN) || value > static_cast<double>(INT_MAX)) {
+        throw std::invalid_argument(std::string("ECR17: ") + field + " is not a valid number");
+    }
+    return static_cast<int>(value);
+}
+
+kit::LrcMode toKit(LrcMode mode) {
+    switch (mode) {
+        case LrcMode::STX: return kit::LrcMode::STX;
+        case LrcMode::NOEXT: return kit::LrcMode::NOEXT;
+        case LrcMode::STX_NOEXT: return kit::LrcMode::STX_NOEXT;
+        case LrcMode::STD: break;
+    }
+    return kit::LrcMode::STD;
+}
+
+kit::ClientConfig toKit(const Ecr17Config& c) {
+    kit::ClientConfig k;
+    k.host = c.host;
+    k.port = toInt(c.port.value_or(10000), "port");
+    k.connectionTimeoutMs = toInt(c.connectionTimeoutMs.value_or(5000), "connectionTimeoutMs");
+    k.terminalId = c.terminalId;
+    k.cashRegisterId = c.cashRegisterId;
+    k.lrcMode = toKit(c.lrcMode.value_or(LrcMode::STD));
+    k.ackTimeoutMs = toInt(c.ackTimeoutMs.value_or(2000), "ackTimeoutMs");
+    k.responseTimeoutMs = toInt(c.responseTimeoutMs.value_or(60000), "responseTimeoutMs");
+    k.retryCount = toInt(c.retryCount.value_or(3), "retryCount");
+    k.retryDelayMs = toInt(c.retryDelayMs.value_or(200), "retryDelayMs");
+    k.receiptDrainMs = toInt(c.receiptDrainMs.value_or(0), "receiptDrainMs");
+    k.autoReconnect = c.autoReconnect.value_or(false);
+    return k;
+}
+
+kit::PaymentCardType toKit(const std::optional<PaymentCardType>& type) {
+    if (!type.has_value()) return kit::PaymentCardType::Auto;
+    switch (*type) {
+        case PaymentCardType::DEBIT: return kit::PaymentCardType::Debit;
+        case PaymentCardType::CREDIT: return kit::PaymentCardType::Credit;
+        case PaymentCardType::OTHER: return kit::PaymentCardType::Other;
+        default: return kit::PaymentCardType::Auto;
+    }
+}
+
+std::optional<kit::TokenizationRequest> toKit(const std::optional<TokenizationRequest>& t) {
+    if (!t.has_value()) return std::nullopt;
+    return kit::TokenizationRequest{t->service == TokenizationService::RECURRING
+                                        ? kit::TokenizationService::Recurring
+                                        : kit::TokenizationService::UnscheduledOrOneClick,
+                                    t->contractCode};
+}
+
+template <typename Request>
+kit::PaymentRequest toKitPayment(const Request& r) {
+    kit::PaymentRequest k;
+    k.amountCents = toInt(r.amountCents, "amountCents");
+    k.cashRegisterId = r.cashRegisterId;
+    k.paymentType = toKit(r.paymentType);
+    k.cardAlreadyPresent = r.cardAlreadyPresent.value_or(false);
+    k.receiptText = r.receiptText.value_or("");
+    k.tokenization = toKit(r.tokenization);
+    return k;
+}
+
+template <typename Request>
+kit::PreAuthFollowUpRequest toKitFollowUp(const Request& r) {
+    kit::PreAuthFollowUpRequest k;
+    k.amountCents = toInt(r.amountCents, "amountCents");
+    k.originalPreAuthCode = r.originalPreAuthCode;
+    k.cashRegisterId = r.cashRegisterId;
+    k.receiptText = r.receiptText.value_or("");
+    return k;
+}
+
+ConnectionState toNitro(kit::ConnectionState state) {
+    switch (state) {
+        case kit::ConnectionState::Connecting: return ConnectionState::CONNECTING;
+        case kit::ConnectionState::Connected: return ConnectionState::CONNECTED;
+        case kit::ConnectionState::Disconnected: break;
+    }
+    return ConnectionState::DISCONNECTED;
+}
+
+// ---------- Kit -> JS ----------
+
 std::optional<std::string> optStr(const std::string& s) {
     return s.empty() ? std::nullopt : std::optional<std::string>(s);
 }
@@ -93,12 +182,12 @@ std::optional<double> optNum(const std::string& s) {
     }
 }
 
-TransactionOutcome mapOutcome(Outcome o) {
+TransactionOutcome mapOutcome(kit::Outcome o) {
     switch (o) {
-        case Outcome::Ok: return TransactionOutcome::OK;
-        case Outcome::Ko: return TransactionOutcome::KO;
-        case Outcome::CardNotPresent: return TransactionOutcome::CARDNOTPRESENT;
-        case Outcome::UnknownTag: return TransactionOutcome::UNKNOWNTAG;
+        case kit::Outcome::Ok: return TransactionOutcome::OK;
+        case kit::Outcome::Ko: return TransactionOutcome::KO;
+        case kit::Outcome::CardNotPresent: return TransactionOutcome::CARDNOTPRESENT;
+        case kit::Outcome::UnknownTag: return TransactionOutcome::UNKNOWNTAG;
         default: return TransactionOutcome::UNKNOWN;
     }
 }
@@ -119,17 +208,7 @@ std::optional<TransactionEntryMode> mapEntryMode(const std::string& raw) {
     return std::nullopt;
 }
 
-char mapPaymentType(const std::optional<PaymentCardType>& t) {
-    if (!t.has_value()) return '0';
-    switch (*t) {
-        case PaymentCardType::DEBIT: return '1';
-        case PaymentCardType::CREDIT: return '2';
-        case PaymentCardType::OTHER: return '3';
-        default: return '0';  // AUTO
-    }
-}
-
-PaymentResult mapPayment(const PaymentResponse& p) {
+PaymentResult mapPayment(const kit::PaymentResponse& p) {
     PaymentResult r;
     r.outcome = mapOutcome(p.outcome);
     r.resultCode = p.resultCode;
@@ -154,7 +233,7 @@ PaymentResult mapPayment(const PaymentResponse& p) {
     return r;
 }
 
-ReversalResult mapReversal(const PaymentResponse& p) {
+ReversalResult mapReversal(const kit::PaymentResponse& p) {
     ReversalResult r;
     r.outcome = mapOutcome(p.outcome);
     r.resultCode = p.resultCode;
@@ -169,7 +248,7 @@ ReversalResult mapReversal(const PaymentResponse& p) {
     return r;
 }
 
-CardVerificationResult mapCardVerify(const PaymentResponse& p) {
+CardVerificationResult mapCardVerify(const kit::PaymentResponse& p) {
     CardVerificationResult r;
     r.outcome = mapOutcome(p.outcome);
     r.resultCode = p.resultCode;
@@ -185,7 +264,7 @@ CardVerificationResult mapCardVerify(const PaymentResponse& p) {
     return r;
 }
 
-PreAuthResult mapPreAuth(const PreAuthResponse& p) {
+PreAuthResult mapPreAuth(const kit::PreAuthResponse& p) {
     PreAuthResult r;
     r.outcome = mapOutcome(p.outcome);
     r.resultCode = p.resultCode;
@@ -204,7 +283,7 @@ PreAuthResult mapPreAuth(const PreAuthResponse& p) {
     return r;
 }
 
-PosStatusResponse mapStatus(const StatusResponse& s) {
+PosStatusResponse mapStatus(const kit::StatusResponse& s) {
     PosStatusResponse r;
     r.terminalId = s.terminalId;
     r.status = static_cast<double>(s.status);
@@ -232,7 +311,7 @@ PosStatusResponse mapStatus(const StatusResponse& s) {
     return r;
 }
 
-TotalsResult mapTotals(const TotalsResponse& t) {
+TotalsResult mapTotals(const kit::TotalsResponse& t) {
     TotalsResult r;
     r.outcome = mapOutcome(t.outcome);
     r.resultCode = t.resultCode;
@@ -240,7 +319,7 @@ TotalsResult mapTotals(const TotalsResponse& t) {
     return r;
 }
 
-CloseSessionResult mapClose(const CloseResponse& c) {
+CloseSessionResult mapClose(const kit::CloseResponse& c) {
     CloseSessionResult r;
     r.outcome = mapOutcome(c.outcome);
     r.resultCode = c.resultCode;
@@ -251,7 +330,7 @@ CloseSessionResult mapClose(const CloseResponse& c) {
     return r;
 }
 
-VasResult mapVas(const VasResponse& v) {
+VasResult mapVas(const kit::VasResponse& v) {
     VasResult r;
     r.responseId = v.responseId;
     r.responseMessage = v.responseMessage;
@@ -264,323 +343,160 @@ VasResult mapVas(const VasResponse& v) {
 
 void HybridEcr17Client::configure(const Ecr17Config& config) {
     config_ = config;
-    // Close any open socket before tearing down the old transport, otherwise the
-    // prior native connection leaks until the HybridObject is collected.
-    if (transport_) {
-        transport_->disconnect();
+    std::shared_ptr<kit::Ecr17Client> previous;
+    {
+        std::lock_guard<std::mutex> lock(clientMutex_);
+        previous = std::move(client_);
     }
-    // Force re-init so a new configuration rebuilds the session/timeouts.
-    session_.reset();
-    adapter_.reset();
-    transport_.reset();
-    // Create the transport HybridObject NOW, on this (JS) thread. createHybridObject
-    // does a JNI FindClass for the Kotlin transport, which resolves only against the
-    // app class loader — and the JS thread has it. Doing it lazily on a Nitro worker
-    // thread (attached via ThreadScope) would use the system class loader and throw
-    // ClassNotFoundException. fbjni caches the resolved jclass globally, so later
-    // method calls from worker threads work (they only need a JNIEnv, see the guards).
-    ensureInit();
+    // Close the old socket now, otherwise the native connection leaks until the
+    // HybridObject is collected. Silently, as before: reconfiguring is not a drop.
+    if (previous) {
+        previous->setOnConnectionStateChange(nullptr);
+        previous->disconnect();
+    }
+    // Create the transport NOW, on this (JS) thread. createHybridObject does a JNI
+    // FindClass for the Kotlin transport, which resolves only against the app class
+    // loader — and the JS thread has it. On a Nitro worker thread it would use the
+    // system class loader and throw ClassNotFoundException. fbjni caches the resolved
+    // jclass globally, so later calls from worker threads work.
+    client();
 }
 
 Ecr17Config HybridEcr17Client::configuration() { return config_; }
 
-void HybridEcr17Client::ensureInit() {
-    if (session_) {
-        return;
+std::shared_ptr<kit::Ecr17Client> HybridEcr17Client::client() {
+    std::lock_guard<std::mutex> lock(clientMutex_);
+    if (client_) {
+        return client_;
     }
     auto obj = HybridObjectRegistry::createHybridObject("Ecr17Transport");
     // HybridObject is a *virtual* base, so static_pointer_cast can't downcast
     // from it — must use dynamic_pointer_cast.
-    transport_ = std::dynamic_pointer_cast<HybridEcr17TransportSpec>(obj);
-    if (!transport_) {
+    auto transport = std::dynamic_pointer_cast<HybridEcr17TransportSpec>(obj);
+    if (!transport) {
         throw std::runtime_error("ECR17: registry returned an incompatible Ecr17Transport object");
     }
-    adapter_ = std::make_shared<NativeTransportAdapter>(transport_);
-
-    SessionConfig sc;
-    sc.lrcMode = config_.lrcMode.value_or(LrcMode::STD);
-    sc.ackTimeoutMs = static_cast<int>(config_.ackTimeoutMs.value_or(2000));
-    sc.responseTimeoutMs = static_cast<int>(config_.responseTimeoutMs.value_or(60000));
-    sc.retryCount = static_cast<int>(config_.retryCount.value_or(3));
-    sc.retryDelayMs = static_cast<int>(config_.retryDelayMs.value_or(200));
-    sc.receiptDrainMs = static_cast<int>(config_.receiptDrainMs.value_or(0));
-    session_ = std::make_unique<Ecr17Session>(*adapter_, sc);
-
-    session_->setOnProgress([this](const std::string& message) {
+    auto client = std::make_shared<kit::Ecr17Client>(std::make_shared<NativeTransportAdapter>(transport),
+                                                     toKit(config_));
+    client->setOnProgress([this](const std::string& message) {
         if (onProgress_) onProgress_(ProgressEvent{message});
     });
-    session_->setOnReceiptLine([this](const std::string& line) {
+    client->setOnReceiptLine([this](const std::string& line) {
         if (onReceiptLine_) onReceiptLine_(ReceiptLine{line});
     });
-}
-
-void HybridEcr17Client::ensureConnected() {
-    // Run the transport JNI work under the app class loader (Android); inline on iOS.
-    runOnJvmThread([&]() {
-        ensureInit();
-        // PROACTIVE reconnect: isConnected() performs a synchronous, non-destructive
-        // liveness probe (Android: a 1-byte peek-with-pushback that detects a peer
-        // FIN without writing to or consuming from the stream) so a peer-closed/
-        // half-open socket — common because ECR17/Nexi terminals close TCP between
-        // transactions — is detected HERE, before any command is sent. This is what
-        // stops a financial command from being sent on a stale socket and then
-        // hitting the (correct) money-safety "never replay" path with a FALSE
-        // "transport disconnected".
-        if (transport_->isConnected()) {
-            return;  // verified live — returns from this lambda only, no further JNI
-        }
-        // Auto-connect: block this worker thread until the native transport connects
-        // (or throw on failure). keepAlive leaves the socket open for reuse.
-        if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::CONNECTING);
-        const double port = config_.port.value_or(10000);
-        const double timeout = config_.connectionTimeoutMs.value_or(5000);
-        try {
-            transport_->connect(config_.host, port, timeout)->await().get();
-        } catch (...) {
-            // Don't leave listeners stuck on CONNECTING when the connection fails.
-            if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::DISCONNECTED);
-            throw;
-        }
-        if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::CONNECTED);
+    client->setOnConnectionStateChange([this](kit::ConnectionState state) {
+        if (onConnectionStateChange_) onConnectionStateChange_(toNitro(state));
     });
+    client_ = client;
+    return client;
 }
 
-std::string HybridEcr17Client::cashRegisterIdOr(const std::optional<std::string>& override) const {
-    return override.value_or(config_.cashRegisterId);
-}
-
-DecodedPacket HybridEcr17Client::runTransaction(
-    const std::string& mainPayload, const std::optional<TokenizationRequest>& tokenization,
-    bool safeToRetry) {
-    std::lock_guard<std::mutex> txLock(txMutex_);  // serialize exchanges on the shared session
-    auto doExchange = [&]() -> DecodedPacket {
-        if (tokenization.has_value()) {
-            const bool recurring = tokenization->service == TokenizationService::RECURRING;
-            const std::string tag =
-                Ecr17Protocol::formatTokenizationTag(recurring, tokenization->contractCode);
-            const std::string additional =
-                Ecr17Protocol::buildAdditionalTagsMessage(config_.terminalId, tag);
-            return session_->exchangeWithAdditionalData(mainPayload, additional);
-        }
-        return session_->exchange(mainPayload);
-    };
-
-    // All exchange JNI (session_ -> adapter_ -> Kotlin transport, incl. the
-    // ArrayBuffer lookup in send()) must run under the app class loader on Android.
-    return runOnJvmThread([&]() -> DecodedPacket {
-        try {
-            return doExchange();
-        } catch (const std::exception&) {
-            const auto originalError = std::current_exception();
-            const bool autoReconnect = config_.autoReconnect.value_or(false);
-            const bool dropped = !transport_ || !transport_->isConnected();
-            if (autoReconnect && dropped) {
-                try {
-                    ensureConnected();  // restore the socket for subsequent commands
-                } catch (...) {
-                    // Reconnect failed: surface the original exchange error, not the
-                    // reconnect failure (the former is what the caller needs to see).
-                    std::rethrow_exception(originalError);
-                }
-            }
-            if (shouldRetryAfterReconnect(autoReconnect, dropped, safeToRetry)) {
-                return doExchange();  // only read-only/idempotent ops may be replayed
-            }
-            throw;  // financial op: surface the error (recover via sendLastResult / 'G')
-        }
-    });
-}
-
-void HybridEcr17Client::runAckOnly(const std::string& payload, bool safeToRetry) {
-    std::lock_guard<std::mutex> txLock(txMutex_);  // serialize exchanges on the shared session
-    // Send under the app class loader on Android (ArrayBuffer lookup in send()).
-    runOnJvmThread([&]() {
-        try {
-            session_->sendAckOnly(payload);
-        } catch (const std::exception&) {
-            const auto originalError = std::current_exception();
-            const bool autoReconnect = config_.autoReconnect.value_or(false);
-            const bool dropped = !transport_ || !transport_->isConnected();
-            if (autoReconnect && dropped) {
-                try {
-                    ensureConnected();
-                } catch (...) {
-                    std::rethrow_exception(originalError);  // surface the original error
-                }
-            }
-            if (!shouldRetryAfterReconnect(autoReconnect, dropped, safeToRetry)) {
-                throw;  // not retryable: surface the original error
-            }
-            session_->sendAckOnly(payload);  // read-only/idempotent op: safe to replay
-        }
+template <typename T, typename Command>
+std::shared_ptr<Promise<T>> HybridEcr17Client::run(Command command) {
+    return Promise<T>::async([this, command = std::move(command)]() -> T {
+        // All transport JNI (connect, the probe, send incl. the ArrayBuffer lookup)
+        // runs under the app class loader on Android; inline elsewhere.
+        return runOnJvmThread([&]() -> T {
+            auto c = client();
+            return command(*c);
+        });
     });
 }
 
 std::shared_ptr<Promise<void>> HybridEcr17Client::connect() {
-    // Delegate to ensureConnected so the explicit Connect path emits CONNECTING
-    // and then CONNECTED on success (consistent with command auto-connect);
-    // returning the raw transport promise would leave listeners stuck on
-    // CONNECTING. Runs on a worker thread (ensureConnected blocks until ready).
-    return Promise<void>::async([this]() { ensureConnected(); });
+    return run<void>([](kit::Ecr17Client& c) { c.connect(); });
 }
 
 void HybridEcr17Client::disconnect() {
-    if (transport_) {
-        transport_->disconnect();
+    std::shared_ptr<kit::Ecr17Client> current;
+    {
+        std::lock_guard<std::mutex> lock(clientMutex_);
+        current = client_;
     }
-    if (onConnectionStateChange_) onConnectionStateChange_(ConnectionState::DISCONNECTED);
+    if (current) {
+        current->disconnect();  // emits DISCONNECTED
+    } else if (onConnectionStateChange_) {
+        onConnectionStateChange_(ConnectionState::DISCONNECTED);
+    }
 }
 
-bool HybridEcr17Client::isConnected() { return transport_ && transport_->isConnected(); }
+bool HybridEcr17Client::isConnected() {
+    std::shared_ptr<kit::Ecr17Client> current;
+    {
+        std::lock_guard<std::mutex> lock(clientMutex_);
+        current = client_;
+    }
+    return current && current->isConnected();
+}
 
 std::shared_ptr<Promise<PosStatusResponse>> HybridEcr17Client::status() {
-    return Promise<PosStatusResponse>::async([this]() -> PosStatusResponse {
-        ensureConnected();
-        auto pkt = runTransaction(Ecr17Protocol::buildStatusMessage(config_.terminalId),
-                                  std::nullopt, /*safeToRetry=*/true);
-        return mapStatus(Ecr17Response::parseStatus(pkt.payload));
-    });
+    return run<PosStatusResponse>([](kit::Ecr17Client& c) { return mapStatus(c.status()); });
 }
 
 std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::pay(const PaymentRequest& request) {
-    return Promise<PaymentResult>::async([this, request]() -> PaymentResult {
-        ensureConnected();
-        const bool tok = request.tokenization.has_value();
-        auto payload = Ecr17Protocol::buildPaymentMessage(
-            config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
-            static_cast<int>(request.amountCents), mapPaymentType(request.paymentType),
-            request.cardAlreadyPresent.value_or(false), tok, request.receiptText.value_or(""));
-        auto pkt = runTransaction(payload, request.tokenization, false);
-        return mapPayment(Ecr17Response::parsePayment(pkt.payload));
-    });
+    return run<PaymentResult>([request](kit::Ecr17Client& c) { return mapPayment(c.pay(toKitPayment(request))); });
 }
 
 std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::payExtended(const PaymentRequest& request) {
-    return Promise<PaymentResult>::async([this, request]() -> PaymentResult {
-        ensureConnected();
-        const bool tok = request.tokenization.has_value();
-        auto payload = Ecr17Protocol::buildExtendedPaymentMessage(
-            config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
-            static_cast<int>(request.amountCents), mapPaymentType(request.paymentType),
-            request.cardAlreadyPresent.value_or(false), tok, request.receiptText.value_or(""));
-        auto pkt = runTransaction(payload, request.tokenization, false);
-        return mapPayment(Ecr17Response::parsePayment(pkt.payload));
-    });
+    return run<PaymentResult>(
+        [request](kit::Ecr17Client& c) { return mapPayment(c.payExtended(toKitPayment(request))); });
 }
 
 std::shared_ptr<Promise<ReversalResult>> HybridEcr17Client::reverse(const ReversalRequest& request) {
-    return Promise<ReversalResult>::async([this, request]() -> ReversalResult {
-        ensureConnected();
-        auto payload = Ecr17Protocol::buildReversalMessage(
-            config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
-            request.stan.value_or("000000"));
-        auto pkt = runTransaction(payload, std::nullopt, /*safeToRetry=*/false);
-        return mapReversal(Ecr17Response::parsePayment(pkt.payload));
+    return run<ReversalResult>([request](kit::Ecr17Client& c) {
+        kit::ReversalRequest k;
+        k.cashRegisterId = request.cashRegisterId;
+        k.stan = request.stan.value_or("000000");
+        return mapReversal(c.reverse(k));
     });
 }
 
 std::shared_ptr<Promise<PreAuthResult>> HybridEcr17Client::preAuth(const PreAuthRequest& request) {
-    return Promise<PreAuthResult>::async([this, request]() -> PreAuthResult {
-        ensureConnected();
-        const bool tok = request.tokenization.has_value();
-        auto payload = Ecr17Protocol::buildPreAuthMessage(
-            config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
-            static_cast<int>(request.amountCents), mapPaymentType(request.paymentType),
-            request.cardAlreadyPresent.value_or(false), tok, request.receiptText.value_or(""));
-        auto pkt = runTransaction(payload, request.tokenization, false);
-        return mapPreAuth(Ecr17Response::parsePreAuth(pkt.payload));
-    });
+    return run<PreAuthResult>([request](kit::Ecr17Client& c) { return mapPreAuth(c.preAuth(toKitPayment(request))); });
 }
 
-std::shared_ptr<Promise<PreAuthResult>> HybridEcr17Client::incrementalAuth(
-    const IncrementalAuthRequest& request) {
-    return Promise<PreAuthResult>::async([this, request]() -> PreAuthResult {
-        ensureConnected();
-        auto payload = Ecr17Protocol::buildIncrementalMessage(
-            config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
-            static_cast<int>(request.amountCents), request.originalPreAuthCode, false,
-            request.receiptText.value_or(""));
-        auto pkt = runTransaction(payload, std::nullopt, /*safeToRetry=*/false);
-        return mapPreAuth(Ecr17Response::parsePreAuth(pkt.payload));
-    });
+std::shared_ptr<Promise<PreAuthResult>> HybridEcr17Client::incrementalAuth(const IncrementalAuthRequest& request) {
+    return run<PreAuthResult>(
+        [request](kit::Ecr17Client& c) { return mapPreAuth(c.incrementalAuth(toKitFollowUp(request))); });
 }
 
-std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::preAuthClosure(
-    const PreAuthClosureRequest& request) {
-    return Promise<PaymentResult>::async([this, request]() -> PaymentResult {
-        ensureConnected();
-        auto payload = Ecr17Protocol::buildPreAuthClosureMessage(
-            config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
-            static_cast<int>(request.amountCents), request.originalPreAuthCode, false,
-            request.receiptText.value_or(""));
-        auto pkt = runTransaction(payload, std::nullopt, /*safeToRetry=*/false);
-        return mapPayment(Ecr17Response::parsePayment(pkt.payload));
-    });
+std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::preAuthClosure(const PreAuthClosureRequest& request) {
+    return run<PaymentResult>(
+        [request](kit::Ecr17Client& c) { return mapPayment(c.preAuthClosure(toKitFollowUp(request))); });
 }
 
-std::shared_ptr<Promise<CardVerificationResult>> HybridEcr17Client::verifyCard(
-    const CardVerificationRequest& request) {
-    return Promise<CardVerificationResult>::async([this, request]() -> CardVerificationResult {
-        ensureConnected();
-        const bool tok = request.tokenization.has_value();
-        auto payload = Ecr17Protocol::buildCardVerificationMessage(
-            config_.terminalId, cashRegisterIdOr(request.cashRegisterId),
-            mapPaymentType(request.paymentType), tok);
-        auto pkt = runTransaction(payload, request.tokenization, false);
-        return mapCardVerify(Ecr17Response::parsePayment(pkt.payload));
+std::shared_ptr<Promise<CardVerificationResult>> HybridEcr17Client::verifyCard(const CardVerificationRequest& request) {
+    return run<CardVerificationResult>([request](kit::Ecr17Client& c) {
+        kit::CardVerificationRequest k;
+        k.cashRegisterId = request.cashRegisterId;
+        k.paymentType = toKit(request.paymentType);
+        k.tokenization = toKit(request.tokenization);
+        return mapCardVerify(c.verifyCard(k));
     });
 }
 
 std::shared_ptr<Promise<CloseSessionResult>> HybridEcr17Client::closeSession() {
-    return Promise<CloseSessionResult>::async([this]() -> CloseSessionResult {
-        ensureConnected();
-        auto payload = Ecr17Protocol::buildCloseSessionMessage(config_.terminalId, config_.cashRegisterId);
-        auto pkt = runTransaction(payload, std::nullopt, /*safeToRetry=*/false);
-        return mapClose(Ecr17Response::parseClose(pkt.payload));
-    });
+    return run<CloseSessionResult>([](kit::Ecr17Client& c) { return mapClose(c.closeSession()); });
 }
 
 std::shared_ptr<Promise<TotalsResult>> HybridEcr17Client::totals() {
-    return Promise<TotalsResult>::async([this]() -> TotalsResult {
-        ensureConnected();
-        auto payload = Ecr17Protocol::buildTotalsMessage(config_.terminalId, config_.cashRegisterId);
-        auto pkt = runTransaction(payload, std::nullopt, /*safeToRetry=*/true);
-        return mapTotals(Ecr17Response::parseTotals(pkt.payload));
-    });
+    return run<TotalsResult>([](kit::Ecr17Client& c) { return mapTotals(c.totals()); });
 }
 
 std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::sendLastResult() {
-    return Promise<PaymentResult>::async([this]() -> PaymentResult {
-        ensureConnected();
-        auto payload = Ecr17Protocol::buildSendLastResultMessage(config_.terminalId, config_.cashRegisterId);
-        auto pkt = runTransaction(payload, std::nullopt, /*safeToRetry=*/true);
-        return mapPayment(Ecr17Response::parsePayment(pkt.payload));
-    });
+    return run<PaymentResult>([](kit::Ecr17Client& c) { return mapPayment(c.sendLastResult()); });
 }
 
 std::shared_ptr<Promise<void>> HybridEcr17Client::enableEcrPrinting(bool enabled) {
-    return Promise<void>::async([this, enabled]() {
-        ensureConnected();
-        runAckOnly(Ecr17Protocol::buildEnableEcrPrintMessage(config_.terminalId, enabled),
-                   /*safeToRetry=*/true);
-    });
+    return run<void>([enabled](kit::Ecr17Client& c) { c.enableEcrPrinting(enabled); });
 }
 
 std::shared_ptr<Promise<void>> HybridEcr17Client::reprint(bool toEcr) {
-    return Promise<void>::async([this, toEcr]() {
-        ensureConnected();
-        runAckOnly(Ecr17Protocol::buildReprintMessage(config_.terminalId, toEcr),
-                   /*safeToRetry=*/false);
-    });
+    return run<void>([toEcr](kit::Ecr17Client& c) { c.reprint(toEcr); });
 }
 
 std::shared_ptr<Promise<VasResult>> HybridEcr17Client::vas(const std::string& xmlRequest) {
-    return Promise<VasResult>::async([this, xmlRequest]() -> VasResult {
-        ensureConnected();
-        auto payload = Ecr17Protocol::buildVasMessage(config_.terminalId, config_.cashRegisterId, xmlRequest);
-        auto pkt = runTransaction(payload, std::nullopt, /*safeToRetry=*/false);
-        return mapVas(Ecr17Response::parseVas(pkt.payload));
-    });
+    return run<VasResult>([xmlRequest](kit::Ecr17Client& c) { return mapVas(c.vas(xmlRequest)); });
 }
 
 void HybridEcr17Client::setOnProgress(const std::function<void(const ProgressEvent&)>& callback) {
