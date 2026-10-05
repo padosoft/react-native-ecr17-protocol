@@ -167,6 +167,23 @@
   `Ecr17Example.exe` directly aborts (0xC0000409 in ucrtbase) because nothing registers
   the WinRT classes (Microsoft.ReactNative, Ecr17) for an unpackaged process. Packaging
   (`run-windows` / the .wapproj) needs VS's MSIX packaging (DesktopBridge) component.
+- Installing that component: `rnw-dependencies.ps1 -Install` did NOT add it (it updated
+  VS Build Tools 2026 instead, and the VS installer runs one operation at a time). What
+  worked: `setup.exe modify --installPath <VS 2026 dir> --add Microsoft.VisualStudio.Workload.Universal
+  --add Microsoft.VisualStudio.ComponentGroup.UWP.Support --add Microsoft.VisualStudio.ComponentGroup.UWP.VC
+  --includeRecommended --passive` (needs UAC; done by the user). Check for
+  `MSBuild/Microsoft/DesktopBridge/Microsoft.DesktopBridge.props` in the VS dir.
+- `run-windows` builds + deploys fine, but its final launch step runs `Get-AppxPackage`
+  via PowerShell 7 (Store build), where the Appx module fails (0x80131539) → exit 127.
+  The package is registered anyway; launch via `shell:AppsFolder\<PackageFamilyName>!App`
+  (query it with Windows PowerShell 5.1: `powershell.exe -NoProfile -Command "Get-AppxPackage Ecr17Example"`).
+- RN 0.84 Metro does not show the app's `console.log` (logs moved to DevTools). For a
+  scripted smoke test, POST log lines from JS to a local HTTP server.
+- Runtime smoke test PASSED (2026-10-05) in the deployed app against a Node fake terminal:
+  Nitro install + `createEcr17Client`, state events connecting → connected → disconnected,
+  Winsock connect, a correct `s` frame on the wire with 3 retransmits ("no ACK after 4
+  attempts"), and `isConnected() == false` after the terminal's FIN. Not yet run against
+  a physical Nexi terminal.
 - The generated app vcxproj sets `<WindowsTargetPlatformVersion>10.0</…>` UNCONDITIONALLY
   after importing ExperimentalFeatures.props, which defeats the SDK pin (RNW then bumps
   "10.0" to 10.0.22621 → MSB8036). Make it conditional (`'$(WindowsTargetPlatformVersion)' == ''`).

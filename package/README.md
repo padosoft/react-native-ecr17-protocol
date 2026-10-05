@@ -157,7 +157,7 @@ first-class:
 | Auto-connect, tokenization (`U`) flow, receipt streaming | ✅ |
 | Android native transport (Kotlin TCP) | ✅ *(CI-built)* |
 | iOS native transport (Swift / Network.framework) | ✅ *(verified on device)* |
-| Windows native transport (C++ / Winsock, React Native Windows New Arch) | 🧪 *(built and loopback-tested locally; not yet verified on a terminal)* |
+| Windows native transport (C++ / Winsock, React Native Windows New Arch) | 🧪 *(built, loopback-tested and smoke-tested in the app locally; not yet verified on a terminal)* |
 
 ## Requirements
 

@@ -91,4 +91,4 @@ Nothing changes in the retry policy: a payment, reversal or pre-auth is never re
 
 ## Status
 
-The Windows build and the transport tests are verified locally. The integration has **not** been verified against a physical terminal yet. Test with small amounts on a test terminal before production use.
+The Windows build, the transport tests and a runtime smoke test are verified locally. The smoke test ran in the deployed example app against a fake terminal: Nitro installed, the client connected, a status frame went out, and the drop was detected after the terminal closed the socket. The integration has **not** been verified against a physical terminal yet. Test with small amounts on a test terminal before production use.

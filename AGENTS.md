@@ -64,11 +64,15 @@ still has open, valid reviewer comments.
   (VS 2022 Build Tools / VS 2026 + Windows SDK in `D:\Windows Kits\10`):
   1. Winsock transport tests (~1 min build, 4 s run):
      `cmake -S package/windows/tests -B build-win && cmake --build build-win --config Release && ctest --test-dir build-win -C Release --output-on-failure`
-  2. RNW build of `example-windows` (compiles + links Ecr17.dll: Nitro install shim +
-     shared C++ core + transport, and the app exe): `cd example-windows && npm install`, then
-     `msbuild windows/Ecr17Example.sln /t:Ecr17Example /restore /m /p:Configuration=Debug /p:Platform=x64`
-     (VS 2026 MSBuild). `run-windows` additionally builds the MSIX package, which needs VS's
-     MSIX packaging / DesktopBridge component (not installed here → MSB4019).
+  2. RNW build + deploy of `example-windows` (compiles Ecr17.dll: Nitro install shim +
+     shared C++ core + transport; builds and registers the MSIX package):
+     `cd example-windows && npm install && npx react-native run-windows --arch x64`.
+     The auto-launch at the end fails here (RNW calls `Get-AppxPackage` through PowerShell 7,
+     whose Appx module can't load); the app IS deployed — launch it with
+     `explorer.exe "shell:AppsFolder\Ecr17Example_mcede4qbjepqr!App"` or from the Start menu.
+  3. Runtime smoke test (for Nitro/transport changes): temporarily point `index.js` at a
+     script that creates the client and connects to a local fake terminal (Node TCP server);
+     RN 0.84's Metro does NOT print `console.log`, so POST results to a local HTTP logger.
   Both are required for any change under `package/windows/**` or `package/cpp/**`.
 - `android-build` (~15-20 min, **manual dispatch only**:
   `gh workflow run "Android build" --ref <branch>`): compiles C++/Kotlin/Nitro
