@@ -36,18 +36,20 @@ bower_components
 
 # Compiled binary addons (https://nodejs.org/api/addons.html)
 build/Release
-# Kit builds (cmake -S packages/ecr17-kit -B build / build-kit / build-win)
+# Core builds (cmake -S packages/ecr17 -B build / build-kit / build-win) and SwiftPM (root Package.swift)
 build-win/
 build-kit/
-packages/ecr17-kit/build/
+packages/ecr17/build/
+.build/
+.swiftpm/
 
 # Dependency directories
 node_modules/
 _site/
 .docmd-search/*
 !.docmd-search/config.json
-docs-site/docs/.docmd-search/
-docs-site/docs/_docmd-search/
+apps/docs/docs/.docmd-search/
+apps/docs/docs/_docmd-search/
 jspm_packages/
 
 # Snowpack dependency directory (https://snowpack.dev/)

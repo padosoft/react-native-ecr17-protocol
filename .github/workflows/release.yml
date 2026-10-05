@@ -88,5 +88,23 @@ jobs:
           # Provenance/sigstore is npmjs-only; it breaks publishing to GitHub Packages.
           NPM_CONFIG_PROVENANCE: false
 
+      # SwiftPM resolves the root Package.swift (the Ecr17 product, i.e. @padosoft/ecr17) by a
+      # plain semver tag, while changesets tags `@padosoft/ecr17@X.Y.Z`. Add `X.Y.Z` on the
+      # same commit for every published core version. The old 1.x tags belong to the
+      # pre-monorepo package; the core starts at 2.0.0, so they never collide.
+      - name: Tag the Swift package version
+        if: always()
+        run: |
+          VERSION=$(node -p "require('./packages/ecr17/package.json').version")
+          if ! git rev-parse -q --verify "refs/tags/@padosoft/ecr17@$VERSION" >/dev/null; then
+            echo "@padosoft/ecr17@$VERSION is not tagged yet — no Swift package tag."
+          elif git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
+            echo "Tag $VERSION already exists."
+          else
+            git tag "$VERSION" "@padosoft/ecr17@$VERSION^{commit}"
+            # Lightweight tag: --follow-tags (below) would skip it, so push it explicitly.
+            git push origin "refs/tags/$VERSION"
+          fi
+
       - name: Publish release tags
         run: git push --follow-tags --set-upstream origin HEAD

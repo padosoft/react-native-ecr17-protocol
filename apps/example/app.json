@@ -14,7 +14,7 @@
 			"package": "com.padosoft.ecr17"
 		},
 		"plugins": [
-			"@padosoft/ecr17-kit",
+			"@padosoft/ecr17",
 			"expo-router",
 			[
 				"expo-splash-screen",

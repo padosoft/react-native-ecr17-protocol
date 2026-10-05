@@ -23,11 +23,11 @@
   `%LOCALAPPDATA%\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.POSIX.UCRT_*\mingw64\bin\g++.exe`
   (installed via `winget install BrechtSanders.WinLibs.POSIX.UCRT`). Compile the
   unit-testable core into a throwaway harness for a real local RED→GREEN check:
-  `g++ -std=c++20 -I packages/ecr17-kit/cpp/include <harness>.cpp packages/ecr17-kit/cpp/src/*.cpp`.
+  `g++ -std=c++20 -I packages/ecr17/cpp/include <harness>.cpp packages/ecr17/cpp/src/*.cpp`.
   ⚠️ The preinstalled MSVC (VS18) is broken — its STL `include/` dir is missing, so
   `cl` can't compile; use g++. ⚠️ Avira quarantines a freshly-built `.exe`
   (false positive) → add a one-time AV exclusion for the build dir. The full GoogleTest
-  suite is `cmake -S packages/ecr17-kit` (CI: `cpp-tests`, Ubuntu). Native Swift/Kotlin + the
+  suite is `cmake -S packages/ecr17` (CI: `cpp-tests`, Ubuntu). Native Swift/Kotlin + the
   Nitro-integrated C++ are not in it: Android via the Android build CI job, iOS by
   building the Expo example on a Mac.
 - `copilot` CLI present for the local review loop.
@@ -150,7 +150,7 @@
   (`HybridEcr17TransportWindows`, a thin wrapper over the Kit's `WinsockTransport`). Its probe is `recv(MSG_PEEK)` after an instant (0 ms)
   `select` — no PushbackInputStream needed, still write-free/non-consuming. Per-connection
   state object so a stale reader from an old socket can't flip a new connection.
-- MSVC has no `<NitroModules/…>` header map → `packages/react-native-ecr17/scripts/windows-nitro-shims.mjs`
+- MSVC has no `<NitroModules/…>` header map → (historical: the package's `windows-nitro-shims.mjs`, deleted with its own Windows project in a825f73)
   writes one-line shims (gitignored `packages/react-native-ecr17/windows/include/`), run by MSBuild.
 - Nitro 0.37 added `cpp/views/RawPropsCompat.cpp` (needs Fabric renderer headers):
   excluded from the vcxproj and the test build (no views here).
@@ -227,16 +227,17 @@
   unloaded at runtime. The reference Nitro module (corasan/image-compressor) ships
   the same file; runtime load is verified only by running the example app.
 - Android `packages/react-native-ecr17/android/CMakeLists.txt` lists the binding's C++ sources **explicitly**
-  (every new `packages/react-native-ecr17/cpp/**/*.cpp` MUST be added there) and globs the Kit's
-  `cpp/src/*.cpp`, found with `node --print require.resolve('@padosoft/ecr17-kit/package.json')`.
-- iOS: `nitro_module` globs `cpp/**/*.{hpp,cpp}` of the binding; the Kit is its own pod.
+  (every new `packages/react-native-ecr17/cpp/**/*.cpp` MUST be added there) and globs the core's
+  `cpp/src/*.cpp`, found with `node --print require.resolve('@padosoft/ecr17/package.json')`.
+- iOS: `nitro_module` globs `cpp/**/*.{hpp,cpp}` of the binding; the core is its own pod (`Ecr17`)
+  or Swift package (`Ecr17`), linked by `native_dependency`.
 - C++20 on both; Android NDK provides POSIX sockets in libc (no extra link lib).
-- Include convention: the Kit's headers are `<Ecr17Kit/Name.hpp>`; the binding's are
+- Include convention: the core's headers are `<ecr17/Name.hpp>`; the binding's are
   subdir-qualified from `packages/react-native-ecr17/cpp` (`"Ecr17Client/HybridEcr17Client.hpp"`).
 
-## Kit split (`packages/ecr17-kit/` = @padosoft/ecr17-kit) — 2026-10-05
+## Kit split (`packages/ecr17/` = @padosoft/ecr17) — 2026-10-05
 - The protocol core + `Ecr17Client` (auto-connect, pre-send probe, money-safe retry) moved
-  out of Nitro into `packages/ecr17-kit/`, namespace `padosoft::ecr17`. It needs its own `LrcMode`: in the
+  out of Nitro into `packages/ecr17/`, namespace `padosoft::ecr17`. It needs its own `LrcMode`: in the
   binding's namespace the name is taken by nitrogen's generated enum, so the binding uses
   `namespace kit = padosoft::ecr17;` and never `using namespace` both (PaymentRequest,
   TokenizationRequest, ConnectionState… exist on both sides).
@@ -253,15 +254,15 @@
   dir does NOT: CocoaPods copies the map to `Target Support Files/`, where the path no longer
   resolves (48× "umbrella directory not found").
 - `header_mappings_dir = "cpp/include"` puts the headers at
-  `Pods/Headers/Public/Ecr17Kit/Ecr17Kit/*.hpp`, so consumers include `<Ecr17Kit/…>` exactly
+  `Pods/Headers/Public/Ecr17/ecr17/*.hpp`, so consumers include `<ecr17/…>` exactly
   as with CMake.
-- RN autolinking links `Ecr17Kit.podspec` by itself when the app lists `@padosoft/ecr17-kit`
-  as a direct dependency; the Kit's Expo plugin covers apps that only have it transitively.
+- (Superseded 2026-10-05, see "SwiftPM opt-in" below.) RN autolinking used to link the core's
+  podspec by itself when the app listed it as a direct dependency.
 - `nitro-module.gradle` (from @padosoft/native-modules) keeps the namespace in
   `ext.nitroModule`, which autolinking can't read: `react-native.config.js` must declare
   `android.packageName`.
 - `@padosoft/native-modules` / `@padosoft/expo` are on the private GitHub Packages registry
-  only (not npm yet). CI strips them (`scripts/strip-private-deps.mjs`) except where the
+  only (not npm yet). CI strips them (`scripts/strip-private-deps.ts`) except where the
   native build needs them (android-build, which then needs `GESCAT_NPM_TOKEN`).
   `@padosoft/native-modules` is a regular DEPENDENCY of the binding and the Kit (it has no
   deps or peers of its own). `@padosoft/expo` stays an OPTIONAL peer of the Kit: it peers on
@@ -274,7 +275,41 @@
   `package.json`, a lockfile that used 2 spaces is rewritten whole. Re-serialize it with 2
   spaces to keep the diff to the real change.
 - The Bash tool on macOS is zsh: an unquoted `$INC` is ONE argument (no word splitting);
-  use `${=INC}` or an array.
+  use `${=INC}` or an array (or `xargs`). BSD `sed -E` has no `\b`: use `perl -pi -e`.
+- The private-registry token (`GESCAT_NPM_TOKEN`) is only in the interactive zsh profile, not
+  in the agent's shell: `bun install` gets 401 unless run as `zsh -ic '… bun install'`.
+
+## Rename + SwiftPM opt-in (PR #26 follow-ups) — 2026-10-05
+- Names: npm `@padosoft/ecr17` (was `@padosoft/ecr17-kit`), pod + Swift product `Ecr17`, headers
+  `<ecr17/…>`, CMake `ecr17::ecr17`. The RN binding's pod became `ReactNativeEcr17`: a pod name
+  must be unique, and nitro.json `iosModuleName` names the pod, nitrogen's
+  `<name>+autolinking.rb` and the Swift module. Android keeps `androidCxxLibName: "Ecr17"`
+  (`libEcr17.so`), which is independent. Regenerate nitrogen after changing `iosModuleName`.
+- **SwiftPM resolves a remote package from the ROOT of its git repo, by plain semver tag** (no
+  subdirectory support). So `Package.swift` is at this repo's root (`path:
+  "packages/ecr17/cpp"`), and the release workflow tags each `@padosoft/ecr17` version
+  `X.Y.Z`. The old `1.0.0`/`1.1.0` tags predate it (old package): `@padosoft/ecr17` starts at
+  2.0.0 so `upToNextMajorVersion` never resolves them.
+- A SwiftPM C++ target works with `publicHeadersPath: "include"` + `cxxLanguageStandard:
+  .cxx20`; a dependent C++ target includes `<ecr17/…>` (verified with a throwaway consumer
+  package and `swift build` on macOS).
+- **`@padosoft/native-modules` 1.5.0's `native_dependency` SPM branch is broken**: it calls
+  `spec.spm_dependency(...)`, which neither CocoaPods (1.17 has no SPM code at all) nor RN
+  defines. RN's bridge is a TOP-LEVEL `spm_dependency(spec, url:, requirement:, products:)`
+  (react_native_pods.rb → scripts/cocoapods/spm.rb), and it also accepts a local path. Hence
+  the "CocoaPods < 1.16" log line on CocoaPods 1.17, and a NoMethodError once
+  `$NativeKitForceSPM` is set. Fix belongs in react-native-support.
+- `native_dependency` args win over `.padosoft/native-kit.json`, so the binding's podspec passes
+  the SPM coordinates itself (it knows where the core lives); the requirement's minimum is
+  read from its `@padosoft/ecr17` dependency range, so pod and SwiftPM resolve the same major.
+- **Autolinking vs SwiftPM**: RN autolinking adds a dependency's pod unless the Podfile already
+  declared it, so when the plugin skips `pod 'Ecr17'` (SwiftPM on) autolinking would add it
+  back. `@padosoft/ecr17` therefore opts out of autolinking (`react-native.config.js`,
+  `platforms.ios: null`, like native-core-kit). The pod comes from the Expo plugin (a
+  Podfile block that evaluates the same flags as `native_dependency`) or one Podfile line in
+  a bare app.
+- Scripts are `.ts`: root ones run with `bun`, `apps/docs/scripts` with `node` ≥ 22.18
+  (type stripping; `apps/docs/.node-version` is 24, `"type": "module"` for top-level await).
 
 ## ECR17 protocol facts (from docs/)
 - Status command code is lowercase `'s'` (0x73). Payment `'P'` request = 167 bytes.

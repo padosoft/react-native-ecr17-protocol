@@ -2,7 +2,7 @@
 	"$schema": "https://nitro.margelo.com/nitro.schema.json",
 	"cxxNamespace": ["ecr17"],
 	"ios": {
-		"iosModuleName": "Ecr17"
+		"iosModuleName": "ReactNativeEcr17"
 	},
 	"android": {
 		"androidNamespace": ["ecr17"],

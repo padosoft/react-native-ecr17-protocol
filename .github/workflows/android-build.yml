@@ -41,7 +41,7 @@ jobs:
         env:
           GESCAT_NPM_TOKEN: ${{ secrets.GESCAT_NPM_TOKEN }}
         run: |
-          node scripts/strip-private-deps.mjs --keep @padosoft/native-modules,@padosoft/expo
+          bun scripts/strip-private-deps.ts --keep @padosoft/native-modules
           rm -f bun.lock
           bun install
 

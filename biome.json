@@ -6,6 +6,8 @@
 		"includes": [
 			"apps/example/**/*.ts",
 			"apps/example/**/*.tsx",
+			"apps/docs/scripts/**/*.ts",
+			"scripts/**/*.ts",
 			"packages/**/*.ts",
 			"packages/**/*.tsx"
 		]

@@ -8,7 +8,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@padosoft/ecr17-kit": "file:../../packages/ecr17-kit",
+		"@padosoft/ecr17": "file:../../packages/ecr17",
 		"@padosoft/react-native-ecr17": "file:../../packages/react-native-ecr17",
 		"@padosoft/react-native-nitro-windows": "file:../../../react-native-support/packages/react-native-nitro-windows",
 		"react": "19.2.3",

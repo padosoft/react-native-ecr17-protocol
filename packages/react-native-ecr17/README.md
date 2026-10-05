@@ -159,29 +159,30 @@ first-class:
 | Android native transport (Kotlin TCP) | ✅ *(CI-built)* |
 | iOS native transport (Swift / Network.framework) | ✅ *(verified on device)* |
 | Windows native transport (C++ / Winsock, React Native Windows New Arch) | 🧪 *(built, loopback-tested and smoke-tested in the app locally; not yet verified on a terminal)* |
-| Native C++ library, usable without React Native ([`@padosoft/ecr17-kit`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/packages/ecr17-kit)) | ✅ *(CMake, CocoaPods; Winsock transport on Windows)* |
+| Native C++ library, usable without React Native ([`@padosoft/ecr17`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/packages/ecr17)) | ✅ *(CMake, CocoaPods, Swift Package Manager; Winsock transport on Windows)* |
 
 ## 🗺️ Roadmap
 
-The protocol lives in a React-free native library, `@padosoft/ecr17-kit`, so native apps can use it
+The protocol lives in a React-free native library, `@padosoft/ecr17`, so native apps can use it
 without React Native. Next:
 
 | Item | What |
 |------|------|
-| **Native Swift API** | `packages/ecr17-kit/ios`: a Swift package / pod over the C++ core (Swift C++ interop) with the Network.framework transport, for iOS, iPadOS and macOS apps. The React Native transport then delegates to it. |
-| **Native Kotlin API** | `packages/ecr17-kit/android`: an Android library over the C++ core (JNI) with the socket transport (incl. the write-free pre-send probe), for Android apps. The React Native transport then delegates to it. |
-| **C API + .NET** | `Ecr17KitC.dll`, a flat C API over the Kit, and a `Padosoft.Ecr17Kit` NuGet package on top of it, for Windows POS software in C#, and any language with a C FFI (same pattern as SharedStorageKit). |
-| **POSIX transport** | A TCP transport for Linux and macOS in the Kit (desktop, server, command-line tools; today it exists only in the integration test). |
-| **Prebuilt binaries** | Committed `.xcframework` / `.aar` builds of the Kit (`padosoft-prebuild`), so apps don't compile the core. |
-| **Publishing** | `@padosoft/ecr17-kit` on npm; drop the GitHub Packages / linked setup once `@padosoft/native-modules` and the Windows Nitro host are on npm. |
-| **Windows verification** | A run against a physical terminal, and a Windows CI job for the Kit's Winsock tests. |
+| **Node.js API** | A Node-API addon over the C++ core, with a typed TypeScript API (built with tsdown), for Node.js POS back-ends and tools. Same money-safe client, no second implementation. |
+| **Native Swift API** | `packages/ecr17/ios`: a Swift API over the C++ core (Swift C++ interop), added to the `Ecr17` Swift package and pod, with the Network.framework transport, for iOS, iPadOS and macOS apps. The React Native transport then delegates to it. |
+| **Native Kotlin API** | `packages/ecr17/android`: an Android library over the C++ core (JNI) with the socket transport (incl. the write-free pre-send probe), for Android apps. The React Native transport then delegates to it. |
+| **C API + .NET** | `ecr17c.dll`, a flat C API over the core, and a `Padosoft.Ecr17` NuGet package on top of it, for Windows POS software in C#, and any language with a C FFI (same pattern as SharedStorageKit). |
+| **POSIX transport** | A TCP transport for Linux and macOS in `@padosoft/ecr17` (desktop, server, command-line tools; today it exists only in the integration test). |
+| **Prebuilt binaries** | Committed `.xcframework` / `.aar` builds of the core (`padosoft-prebuild`), so apps don't compile the core. |
+| **Publishing** | `@padosoft/ecr17` on npm; drop the GitHub Packages / linked setup once `@padosoft/native-modules` and the Windows Nitro host are on npm. |
+| **Windows verification** | A run against a physical terminal, and a Windows CI job for the core's Winsock tests. |
 
 ## Requirements
 
 - **React Native** 0.76+ (new architecture) — the example uses Expo SDK 57 / RN 0.86
 - **React Native Windows** 0.84+ (New Architecture) for Windows — see [Windows](#-windows)
 - **react-native-nitro-modules** (peer dependency)
-- The protocol engine, [`@padosoft/ecr17-kit`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/packages/ecr17-kit),
+- The protocol engine, [`@padosoft/ecr17`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/packages/ecr17),
   and the native build helpers, `@padosoft/native-modules`, are dependencies: they install
   with the package. ⚠️ Neither is on npm yet (the helpers are on the padosoft GitHub Packages
   registry for now).
@@ -190,23 +191,36 @@ without React Native. Next:
 ## 📦 Installation
 
 ```bash
-bun add @padosoft/react-native-ecr17 @padosoft/ecr17-kit react-native-nitro-modules
+bun add @padosoft/react-native-ecr17 @padosoft/ecr17 react-native-nitro-modules
 cd ios && pod install   # iOS
 ```
 
 > Nitro module: requires the RN **new architecture** (default on 0.76+).
 
 The protocol engine is a separate, React-free C++ library,
-[`@padosoft/ecr17-kit`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/packages/ecr17-kit)
-(also usable from native apps). On iOS its pod must be in the app's Podfile. With Expo,
-add its config plugin to `app.json` (it uses `@padosoft/expo`, so add that too):
+[`@padosoft/ecr17`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/packages/ecr17)
+(also usable from native apps). On iOS it is the `Ecr17` pod, which the app declares
+(it is not autolinked). With Expo, add its config plugin to `app.json`:
 
 ```json
-{ "expo": { "plugins": ["@padosoft/ecr17-kit"] } }
+{ "expo": { "plugins": ["@padosoft/ecr17"] } }
 ```
 
-In a bare app, listing `@padosoft/ecr17-kit` as a direct dependency (as above) is
-enough: React Native autolinking finds `Ecr17Kit.podspec`. Android needs nothing extra.
+In a bare app, add it to the app target in `ios/Podfile`:
+
+```ruby
+pod 'Ecr17', :path => '../node_modules/@padosoft/ecr17'
+```
+
+Android needs nothing extra.
+
+#### Swift Package Manager (optional, experimental)
+
+The binding's pod (`ReactNativeEcr17`) links the core through `@padosoft/native-modules`'
+`native_dependency`. When the app switches SwiftPM on (`withSwiftPackageManager` from
+`@padosoft/expo`), it links the `Ecr17` Swift package instead of the pod: `Package.swift` at
+this repo's root, resolved by the `X.Y.Z` tag of `@padosoft/ecr17`. The Expo plugin then
+leaves the `Ecr17` pod out; in a bare app, remove the line above.
 
 ### 🪟 Windows
 
@@ -214,7 +228,7 @@ On **React Native Windows** (New Architecture), `react-native-nitro-modules` has
 Windows project. The app adds one Nitro host,
 [`@padosoft/react-native-nitro-windows`](https://github.com/padosoft/react-native-support/tree/main/packages/react-native-nitro-windows)
 (⚠️ not published yet: link it from a react-native-support checkout). It installs
-Nitro and compiles this package's Windows C++ and the Kit's. In the app's
+Nitro and compiles this package's Windows C++ and `@padosoft/ecr17`'s. In the app's
 `react-native.config.js`:
 
 ```js
@@ -226,7 +240,7 @@ module.exports = {
 ```
 
 Then `npx react-native autolink-windows && npx react-native run-windows`. The
-transport is the Kit's C++ `WinsockTransport`, with the same write-free pre-send
+transport is `@padosoft/ecr17`'s C++ `WinsockTransport`, with the same write-free pre-send
 liveness probe as Android. Details:
 [package/windows/README.md](https://github.com/padosoft/react-native-ecr17-protocol/blob/main/packages/react-native-ecr17/windows/README.md)
 · example app:
@@ -333,27 +347,29 @@ LRC = `0x7F` XOR-folded; framing bytes folded in are selectable via `lrcMode`
 
 ```
 packages/
-├── ecr17-kit/                 # @padosoft/ecr17-kit — React-free C++20, usable from native apps
-│   ├── cpp/include/Ecr17Kit/  # Lcr (LRC) · PacketCodec (framing) · Ecr17Protocol (builders)
+├── ecr17/                     # @padosoft/ecr17 — React-free C++20, usable from native apps
+│   ├── cpp/include/ecr17/     # Lcr (LRC) · PacketCodec (framing) · Ecr17Protocol (builders)
 │   │                          # Ecr17Response (parsers) · Ecr17Session (ACK/NAK, retransmit, timeouts)
 │   │                          # Ecr17Client (auto-connect, pre-send probe, money-safe retry) · Transport
 │   ├── cpp/tests/             # GoogleTest + FakeTransport
-│   └── windows/               # WinsockTransport (+ loopback tests)
+│   ├── windows/               # WinsockTransport (+ loopback tests)
+│   └── Ecr17.podspec          # the Ecr17 pod (Package.swift at the repo root is the Swift package)
 └── react-native-ecr17/        # @padosoft/react-native-ecr17 — the Nitro binding, no protocol logic
-    ├── cpp/Ecr17Client/       # HybridEcr17Client: Nitro types <-> Kit Ecr17Client
-    ├── cpp/Transport/         # NativeTransportAdapter: Ecr17Transport HybridObject -> Kit Transport
+    ├── cpp/Ecr17Client/       # HybridEcr17Client: Nitro types <-> ecr17::Ecr17Client
+    ├── cpp/Transport/         # NativeTransportAdapter: Ecr17Transport HybridObject -> ecr17::Transport
     ├── android/.../HybridEcr17Transport.kt   # Kotlin TCP transport
     ├── ios/HybridEcr17Transport.swift        # Swift (Network.framework) transport
     └── windows/                              # Windows HybridObject + registration (built by the Nitro host)
 apps/
 ├── example/                   # Expo debug console (iOS / Android)
-└── example-windows/           # React Native Windows console (npm, outside the bun workspace)
+├── example-windows/           # React Native Windows console (npm, outside the bun workspace)
+└── docs/                      # documentation site (docmd, npm)
 ```
 
 ## 🧪 Testing
 
 ```bash
-cmake -S packages/ecr17-kit -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S packages/ecr17 -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build && ctest --test-dir build --output-on-failure
 ```
 
@@ -386,7 +402,7 @@ An opt-in C++ integration test runs the full core over a real TCP socket. It is
 **skipped** unless `ECR17_TERMINAL_HOST` is set:
 
 ```bash
-cmake -S packages/ecr17-kit -B build && cmake --build build
+cmake -S packages/ecr17 -B build && cmake --build build
 ECR17_TERMINAL_HOST=192.168.1.50 ECR17_TERMINAL_PORT=10000 \
 ECR17_TERMINAL_ID=00000000 ECR17_LRC_MODE=std \
 ctest --test-dir build -R Integration --output-on-failure

@@ -58,7 +58,7 @@
 			"margelo::nitro::ecr17::registerEcr17HybridObjects"
 		],
 		"kits": [
-			"@padosoft/ecr17-kit"
+			"@padosoft/ecr17"
 		]
 	},
 	"repository": {
@@ -75,7 +75,7 @@
 		"registry": "https://registry.npmjs.org/"
 	},
 	"dependencies": {
-		"@padosoft/ecr17-kit": "^1.0.0",
+		"@padosoft/ecr17": "^2.0.0",
 		"@padosoft/native-modules": "^1.5.0"
 	},
 	"devDependencies": {

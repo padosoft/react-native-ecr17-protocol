@@ -28,7 +28,7 @@
 
 namespace margelo::nitro::ecr17 {
 
-namespace kit = padosoft::ecr17;
+namespace core = padosoft::ecr17;
 
 namespace {
 
@@ -78,7 +78,7 @@ using margelo::nitro::Promise;
 
 namespace {
 
-// ---------- JS -> Kit ----------
+// ---------- JS -> core ----------
 
 // JS numbers are doubles. Out-of-range or NaN would be undefined behaviour in a
 // plain cast: those throw instead. Fractions are truncated, as before.
@@ -89,24 +89,24 @@ int toInt(double value, const char* field) {
     return static_cast<int>(value);
 }
 
-kit::LrcMode toKit(LrcMode mode) {
+core::LrcMode toCore(LrcMode mode) {
     switch (mode) {
-        case LrcMode::STX: return kit::LrcMode::STX;
-        case LrcMode::NOEXT: return kit::LrcMode::NOEXT;
-        case LrcMode::STX_NOEXT: return kit::LrcMode::STX_NOEXT;
+        case LrcMode::STX: return core::LrcMode::STX;
+        case LrcMode::NOEXT: return core::LrcMode::NOEXT;
+        case LrcMode::STX_NOEXT: return core::LrcMode::STX_NOEXT;
         case LrcMode::STD: break;
     }
-    return kit::LrcMode::STD;
+    return core::LrcMode::STD;
 }
 
-kit::ClientConfig toKit(const Ecr17Config& c) {
-    kit::ClientConfig k;
+core::ClientConfig toCore(const Ecr17Config& c) {
+    core::ClientConfig k;
     k.host = c.host;
     k.port = toInt(c.port.value_or(10000), "port");
     k.connectionTimeoutMs = toInt(c.connectionTimeoutMs.value_or(5000), "connectionTimeoutMs");
     k.terminalId = c.terminalId;
     k.cashRegisterId = c.cashRegisterId;
-    k.lrcMode = toKit(c.lrcMode.value_or(LrcMode::STD));
+    k.lrcMode = toCore(c.lrcMode.value_or(LrcMode::STD));
     k.ackTimeoutMs = toInt(c.ackTimeoutMs.value_or(2000), "ackTimeoutMs");
     k.responseTimeoutMs = toInt(c.responseTimeoutMs.value_or(60000), "responseTimeoutMs");
     k.retryCount = toInt(c.retryCount.value_or(3), "retryCount");
@@ -116,39 +116,39 @@ kit::ClientConfig toKit(const Ecr17Config& c) {
     return k;
 }
 
-kit::PaymentCardType toKit(const std::optional<PaymentCardType>& type) {
-    if (!type.has_value()) return kit::PaymentCardType::Auto;
+core::PaymentCardType toCore(const std::optional<PaymentCardType>& type) {
+    if (!type.has_value()) return core::PaymentCardType::Auto;
     switch (*type) {
-        case PaymentCardType::DEBIT: return kit::PaymentCardType::Debit;
-        case PaymentCardType::CREDIT: return kit::PaymentCardType::Credit;
-        case PaymentCardType::OTHER: return kit::PaymentCardType::Other;
-        default: return kit::PaymentCardType::Auto;
+        case PaymentCardType::DEBIT: return core::PaymentCardType::Debit;
+        case PaymentCardType::CREDIT: return core::PaymentCardType::Credit;
+        case PaymentCardType::OTHER: return core::PaymentCardType::Other;
+        default: return core::PaymentCardType::Auto;
     }
 }
 
-std::optional<kit::TokenizationRequest> toKit(const std::optional<TokenizationRequest>& t) {
+std::optional<core::TokenizationRequest> toCore(const std::optional<TokenizationRequest>& t) {
     if (!t.has_value()) return std::nullopt;
-    return kit::TokenizationRequest{t->service == TokenizationService::RECURRING
-                                        ? kit::TokenizationService::Recurring
-                                        : kit::TokenizationService::UnscheduledOrOneClick,
+    return core::TokenizationRequest{t->service == TokenizationService::RECURRING
+                                        ? core::TokenizationService::Recurring
+                                        : core::TokenizationService::UnscheduledOrOneClick,
                                     t->contractCode};
 }
 
 template <typename Request>
-kit::PaymentRequest toKitPayment(const Request& r) {
-    kit::PaymentRequest k;
+core::PaymentRequest toCorePayment(const Request& r) {
+    core::PaymentRequest k;
     k.amountCents = toInt(r.amountCents, "amountCents");
     k.cashRegisterId = r.cashRegisterId;
-    k.paymentType = toKit(r.paymentType);
+    k.paymentType = toCore(r.paymentType);
     k.cardAlreadyPresent = r.cardAlreadyPresent.value_or(false);
     k.receiptText = r.receiptText.value_or("");
-    k.tokenization = toKit(r.tokenization);
+    k.tokenization = toCore(r.tokenization);
     return k;
 }
 
 template <typename Request>
-kit::PreAuthFollowUpRequest toKitFollowUp(const Request& r) {
-    kit::PreAuthFollowUpRequest k;
+core::PreAuthFollowUpRequest toCoreFollowUp(const Request& r) {
+    core::PreAuthFollowUpRequest k;
     k.amountCents = toInt(r.amountCents, "amountCents");
     k.originalPreAuthCode = r.originalPreAuthCode;
     k.cashRegisterId = r.cashRegisterId;
@@ -156,16 +156,16 @@ kit::PreAuthFollowUpRequest toKitFollowUp(const Request& r) {
     return k;
 }
 
-ConnectionState toNitro(kit::ConnectionState state) {
+ConnectionState toNitro(core::ConnectionState state) {
     switch (state) {
-        case kit::ConnectionState::Connecting: return ConnectionState::CONNECTING;
-        case kit::ConnectionState::Connected: return ConnectionState::CONNECTED;
-        case kit::ConnectionState::Disconnected: break;
+        case core::ConnectionState::Connecting: return ConnectionState::CONNECTING;
+        case core::ConnectionState::Connected: return ConnectionState::CONNECTED;
+        case core::ConnectionState::Disconnected: break;
     }
     return ConnectionState::DISCONNECTED;
 }
 
-// ---------- Kit -> JS ----------
+// ---------- core -> JS ----------
 
 std::optional<std::string> optStr(const std::string& s) {
     return s.empty() ? std::nullopt : std::optional<std::string>(s);
@@ -182,12 +182,12 @@ std::optional<double> optNum(const std::string& s) {
     }
 }
 
-TransactionOutcome mapOutcome(kit::Outcome o) {
+TransactionOutcome mapOutcome(core::Outcome o) {
     switch (o) {
-        case kit::Outcome::Ok: return TransactionOutcome::OK;
-        case kit::Outcome::Ko: return TransactionOutcome::KO;
-        case kit::Outcome::CardNotPresent: return TransactionOutcome::CARDNOTPRESENT;
-        case kit::Outcome::UnknownTag: return TransactionOutcome::UNKNOWNTAG;
+        case core::Outcome::Ok: return TransactionOutcome::OK;
+        case core::Outcome::Ko: return TransactionOutcome::KO;
+        case core::Outcome::CardNotPresent: return TransactionOutcome::CARDNOTPRESENT;
+        case core::Outcome::UnknownTag: return TransactionOutcome::UNKNOWNTAG;
         default: return TransactionOutcome::UNKNOWN;
     }
 }
@@ -208,7 +208,7 @@ std::optional<TransactionEntryMode> mapEntryMode(const std::string& raw) {
     return std::nullopt;
 }
 
-PaymentResult mapPayment(const kit::PaymentResponse& p) {
+PaymentResult mapPayment(const core::PaymentResponse& p) {
     PaymentResult r;
     r.outcome = mapOutcome(p.outcome);
     r.resultCode = p.resultCode;
@@ -233,7 +233,7 @@ PaymentResult mapPayment(const kit::PaymentResponse& p) {
     return r;
 }
 
-ReversalResult mapReversal(const kit::PaymentResponse& p) {
+ReversalResult mapReversal(const core::PaymentResponse& p) {
     ReversalResult r;
     r.outcome = mapOutcome(p.outcome);
     r.resultCode = p.resultCode;
@@ -248,7 +248,7 @@ ReversalResult mapReversal(const kit::PaymentResponse& p) {
     return r;
 }
 
-CardVerificationResult mapCardVerify(const kit::PaymentResponse& p) {
+CardVerificationResult mapCardVerify(const core::PaymentResponse& p) {
     CardVerificationResult r;
     r.outcome = mapOutcome(p.outcome);
     r.resultCode = p.resultCode;
@@ -264,7 +264,7 @@ CardVerificationResult mapCardVerify(const kit::PaymentResponse& p) {
     return r;
 }
 
-PreAuthResult mapPreAuth(const kit::PreAuthResponse& p) {
+PreAuthResult mapPreAuth(const core::PreAuthResponse& p) {
     PreAuthResult r;
     r.outcome = mapOutcome(p.outcome);
     r.resultCode = p.resultCode;
@@ -283,7 +283,7 @@ PreAuthResult mapPreAuth(const kit::PreAuthResponse& p) {
     return r;
 }
 
-PosStatusResponse mapStatus(const kit::StatusResponse& s) {
+PosStatusResponse mapStatus(const core::StatusResponse& s) {
     PosStatusResponse r;
     r.terminalId = s.terminalId;
     r.status = static_cast<double>(s.status);
@@ -311,7 +311,7 @@ PosStatusResponse mapStatus(const kit::StatusResponse& s) {
     return r;
 }
 
-TotalsResult mapTotals(const kit::TotalsResponse& t) {
+TotalsResult mapTotals(const core::TotalsResponse& t) {
     TotalsResult r;
     r.outcome = mapOutcome(t.outcome);
     r.resultCode = t.resultCode;
@@ -319,7 +319,7 @@ TotalsResult mapTotals(const kit::TotalsResponse& t) {
     return r;
 }
 
-CloseSessionResult mapClose(const kit::CloseResponse& c) {
+CloseSessionResult mapClose(const core::CloseResponse& c) {
     CloseSessionResult r;
     r.outcome = mapOutcome(c.outcome);
     r.resultCode = c.resultCode;
@@ -330,7 +330,7 @@ CloseSessionResult mapClose(const kit::CloseResponse& c) {
     return r;
 }
 
-VasResult mapVas(const kit::VasResponse& v) {
+VasResult mapVas(const core::VasResponse& v) {
     VasResult r;
     r.responseId = v.responseId;
     r.responseMessage = v.responseMessage;
@@ -343,7 +343,7 @@ VasResult mapVas(const kit::VasResponse& v) {
 
 void HybridEcr17Client::configure(const Ecr17Config& config) {
     config_ = config;
-    std::shared_ptr<kit::Ecr17Client> previous;
+    std::shared_ptr<core::Ecr17Client> previous;
     {
         std::lock_guard<std::mutex> lock(clientMutex_);
         previous = std::move(client_);
@@ -364,7 +364,7 @@ void HybridEcr17Client::configure(const Ecr17Config& config) {
 
 Ecr17Config HybridEcr17Client::configuration() { return config_; }
 
-std::shared_ptr<kit::Ecr17Client> HybridEcr17Client::client() {
+std::shared_ptr<core::Ecr17Client> HybridEcr17Client::client() {
     std::lock_guard<std::mutex> lock(clientMutex_);
     if (client_) {
         return client_;
@@ -376,15 +376,15 @@ std::shared_ptr<kit::Ecr17Client> HybridEcr17Client::client() {
     if (!transport) {
         throw std::runtime_error("ECR17: registry returned an incompatible Ecr17Transport object");
     }
-    auto client = std::make_shared<kit::Ecr17Client>(std::make_shared<NativeTransportAdapter>(transport),
-                                                     toKit(config_));
+    auto client = std::make_shared<core::Ecr17Client>(std::make_shared<NativeTransportAdapter>(transport),
+                                                     toCore(config_));
     client->setOnProgress([this](const std::string& message) {
         if (onProgress_) onProgress_(ProgressEvent{message});
     });
     client->setOnReceiptLine([this](const std::string& line) {
         if (onReceiptLine_) onReceiptLine_(ReceiptLine{line});
     });
-    client->setOnConnectionStateChange([this](kit::ConnectionState state) {
+    client->setOnConnectionStateChange([this](core::ConnectionState state) {
         if (onConnectionStateChange_) onConnectionStateChange_(toNitro(state));
     });
     client_ = client;
@@ -404,11 +404,11 @@ std::shared_ptr<Promise<T>> HybridEcr17Client::run(Command command) {
 }
 
 std::shared_ptr<Promise<void>> HybridEcr17Client::connect() {
-    return run<void>([](kit::Ecr17Client& c) { c.connect(); });
+    return run<void>([](core::Ecr17Client& c) { c.connect(); });
 }
 
 void HybridEcr17Client::disconnect() {
-    std::shared_ptr<kit::Ecr17Client> current;
+    std::shared_ptr<core::Ecr17Client> current;
     {
         std::lock_guard<std::mutex> lock(clientMutex_);
         current = client_;
@@ -421,7 +421,7 @@ void HybridEcr17Client::disconnect() {
 }
 
 bool HybridEcr17Client::isConnected() {
-    std::shared_ptr<kit::Ecr17Client> current;
+    std::shared_ptr<core::Ecr17Client> current;
     {
         std::lock_guard<std::mutex> lock(clientMutex_);
         current = client_;
@@ -430,21 +430,21 @@ bool HybridEcr17Client::isConnected() {
 }
 
 std::shared_ptr<Promise<PosStatusResponse>> HybridEcr17Client::status() {
-    return run<PosStatusResponse>([](kit::Ecr17Client& c) { return mapStatus(c.status()); });
+    return run<PosStatusResponse>([](core::Ecr17Client& c) { return mapStatus(c.status()); });
 }
 
 std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::pay(const PaymentRequest& request) {
-    return run<PaymentResult>([request](kit::Ecr17Client& c) { return mapPayment(c.pay(toKitPayment(request))); });
+    return run<PaymentResult>([request](core::Ecr17Client& c) { return mapPayment(c.pay(toCorePayment(request))); });
 }
 
 std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::payExtended(const PaymentRequest& request) {
     return run<PaymentResult>(
-        [request](kit::Ecr17Client& c) { return mapPayment(c.payExtended(toKitPayment(request))); });
+        [request](core::Ecr17Client& c) { return mapPayment(c.payExtended(toCorePayment(request))); });
 }
 
 std::shared_ptr<Promise<ReversalResult>> HybridEcr17Client::reverse(const ReversalRequest& request) {
-    return run<ReversalResult>([request](kit::Ecr17Client& c) {
-        kit::ReversalRequest k;
+    return run<ReversalResult>([request](core::Ecr17Client& c) {
+        core::ReversalRequest k;
         k.cashRegisterId = request.cashRegisterId;
         k.stan = request.stan.value_or("000000");
         return mapReversal(c.reverse(k));
@@ -452,51 +452,51 @@ std::shared_ptr<Promise<ReversalResult>> HybridEcr17Client::reverse(const Revers
 }
 
 std::shared_ptr<Promise<PreAuthResult>> HybridEcr17Client::preAuth(const PreAuthRequest& request) {
-    return run<PreAuthResult>([request](kit::Ecr17Client& c) { return mapPreAuth(c.preAuth(toKitPayment(request))); });
+    return run<PreAuthResult>([request](core::Ecr17Client& c) { return mapPreAuth(c.preAuth(toCorePayment(request))); });
 }
 
 std::shared_ptr<Promise<PreAuthResult>> HybridEcr17Client::incrementalAuth(const IncrementalAuthRequest& request) {
     return run<PreAuthResult>(
-        [request](kit::Ecr17Client& c) { return mapPreAuth(c.incrementalAuth(toKitFollowUp(request))); });
+        [request](core::Ecr17Client& c) { return mapPreAuth(c.incrementalAuth(toCoreFollowUp(request))); });
 }
 
 std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::preAuthClosure(const PreAuthClosureRequest& request) {
     return run<PaymentResult>(
-        [request](kit::Ecr17Client& c) { return mapPayment(c.preAuthClosure(toKitFollowUp(request))); });
+        [request](core::Ecr17Client& c) { return mapPayment(c.preAuthClosure(toCoreFollowUp(request))); });
 }
 
 std::shared_ptr<Promise<CardVerificationResult>> HybridEcr17Client::verifyCard(const CardVerificationRequest& request) {
-    return run<CardVerificationResult>([request](kit::Ecr17Client& c) {
-        kit::CardVerificationRequest k;
+    return run<CardVerificationResult>([request](core::Ecr17Client& c) {
+        core::CardVerificationRequest k;
         k.cashRegisterId = request.cashRegisterId;
-        k.paymentType = toKit(request.paymentType);
-        k.tokenization = toKit(request.tokenization);
+        k.paymentType = toCore(request.paymentType);
+        k.tokenization = toCore(request.tokenization);
         return mapCardVerify(c.verifyCard(k));
     });
 }
 
 std::shared_ptr<Promise<CloseSessionResult>> HybridEcr17Client::closeSession() {
-    return run<CloseSessionResult>([](kit::Ecr17Client& c) { return mapClose(c.closeSession()); });
+    return run<CloseSessionResult>([](core::Ecr17Client& c) { return mapClose(c.closeSession()); });
 }
 
 std::shared_ptr<Promise<TotalsResult>> HybridEcr17Client::totals() {
-    return run<TotalsResult>([](kit::Ecr17Client& c) { return mapTotals(c.totals()); });
+    return run<TotalsResult>([](core::Ecr17Client& c) { return mapTotals(c.totals()); });
 }
 
 std::shared_ptr<Promise<PaymentResult>> HybridEcr17Client::sendLastResult() {
-    return run<PaymentResult>([](kit::Ecr17Client& c) { return mapPayment(c.sendLastResult()); });
+    return run<PaymentResult>([](core::Ecr17Client& c) { return mapPayment(c.sendLastResult()); });
 }
 
 std::shared_ptr<Promise<void>> HybridEcr17Client::enableEcrPrinting(bool enabled) {
-    return run<void>([enabled](kit::Ecr17Client& c) { c.enableEcrPrinting(enabled); });
+    return run<void>([enabled](core::Ecr17Client& c) { c.enableEcrPrinting(enabled); });
 }
 
 std::shared_ptr<Promise<void>> HybridEcr17Client::reprint(bool toEcr) {
-    return run<void>([toEcr](kit::Ecr17Client& c) { c.reprint(toEcr); });
+    return run<void>([toEcr](core::Ecr17Client& c) { c.reprint(toEcr); });
 }
 
 std::shared_ptr<Promise<VasResult>> HybridEcr17Client::vas(const std::string& xmlRequest) {
-    return run<VasResult>([xmlRequest](kit::Ecr17Client& c) { return mapVas(c.vas(xmlRequest)); });
+    return run<VasResult>([xmlRequest](core::Ecr17Client& c) { return mapVas(c.vas(xmlRequest)); });
 }
 
 void HybridEcr17Client::setOnProgress(const std::function<void(const ProgressEvent&)>& callback) {

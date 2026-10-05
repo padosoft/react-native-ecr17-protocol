@@ -62,8 +62,8 @@ re-apply the custom resolver and the SDK pin afterwards.
 
 ## Verifying a native change
 
-There is no Windows CI job. After changing `packages/ecr17-kit/**`, `packages/react-native-ecr17/windows/**` or
-`packages/react-native-ecr17/cpp/**`, build and run this app and run the Kit's tests (Winsock included) locally.
+There is no Windows CI job. After changing `packages/ecr17/**`, `packages/react-native-ecr17/windows/**` or
+`packages/react-native-ecr17/cpp/**`, build and run this app and run the core's tests (Winsock included) locally.
 
 `npm run windows` builds and deploys the app as an MSIX package. That needs Visual
 Studio's "Windows application development" workload (MSIX packaging tools). The built
@@ -81,7 +81,7 @@ msbuild windows/Ecr17Example.sln /t:Ecr17Example /restore /m /p:Configuration=De
 ```
 
 ```bash
-cmake -S ../../packages/ecr17-kit -B ../../build-win
+cmake -S ../../packages/ecr17 -B ../../build-win
 cmake --build ../../build-win --config Release
 ctest --test-dir ../../build-win -C Release --output-on-failure
 ```

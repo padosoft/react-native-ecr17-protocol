@@ -1,8 +1,8 @@
 # @padosoft/react-native-ecr17 for React Native Windows
 
 For **React Native Windows New Architecture** (Fabric / WinAppSDK, RNW 0.84+).
-It has the same JS API and the same C++ protocol core (`@padosoft/ecr17-kit`) as
-iOS and Android. Only the TCP transport is Windows-specific: the Kit's
+It has the same JS API and the same C++ protocol core (`@padosoft/ecr17`) as
+iOS and Android. Only the TCP transport is Windows-specific: `@padosoft/ecr17`'s
 `WinsockTransport`.
 
 ## How it works
@@ -22,12 +22,12 @@ the Windows C++ that each Nitro package declares in its `package.json`:
   "includeDirs": ["windows", "cpp", "cpp/Ecr17Client", "nitrogen/generated/shared/c++"],
   "headers": ["windows/Ecr17Windows.hpp"],
   "register": ["margelo::nitro::ecr17::registerEcr17HybridObjects"],
-  "kits": ["@padosoft/ecr17-kit"]
+  "kits": ["@padosoft/ecr17"]
 }
 ```
 
-The Kit declares its own sources (`nativeKit.windows`: the core and
-`WinsockTransport`). The host compiles each Kit once, even when two packages
+`@padosoft/ecr17` declares its own sources (`nativeKit.windows`: the core and
+`WinsockTransport`). The host compiles each of these native kits once, even when two packages
 wrap it.
 
 ```
@@ -39,13 +39,13 @@ NitroWindows.dll  (the host)  install(): registerEcr17HybridObjects(), then Nitr
         │
         ▼
 HybridObjectRegistry
-  "Ecr17Client"    → HybridEcr17Client          ../cpp → Ecr17Kit::Ecr17Client (shared with iOS/Android)
-  "Ecr17Transport" → HybridEcr17TransportWindows windows/ → Ecr17Kit::WinsockTransport (packages/ecr17-kit/windows)
+  "Ecr17Client"    → HybridEcr17Client          ../cpp → ecr17::Ecr17Client (shared with iOS/Android)
+  "Ecr17Transport" → HybridEcr17TransportWindows windows/ → ecr17::WinsockTransport (packages/ecr17/windows)
 ```
 
 ## Transport and payment safety
 
-`HybridEcr17TransportWindows` is the Nitro face of the Kit's `WinsockTransport`.
+`HybridEcr17TransportWindows` is the Nitro face of `@padosoft/ecr17`'s `WinsockTransport`.
 Its `connect` runs on a dedicated thread, not on Nitro's thread pool. The
 transport mirrors the Kotlin one:
 
@@ -58,14 +58,14 @@ transport mirrors the Kotlin one:
 - `onDisconnect` fires exactly once per unexpected drop, never for `disconnect()`.
 
 The money-safety rules are unchanged: a financial command is never re-sent after
-a drop (`packages/ecr17-kit/cpp/include/Ecr17Kit/RetryPolicy.hpp`). Recover a lost result with
+a drop (`packages/ecr17/cpp/include/ecr17/RetryPolicy.hpp`). Recover a lost result with
 `sendLastResult()` (command `G`).
 
-The Kit's tests run the protocol core, the client and the Winsock transport
+The core's tests run the protocol core, the client and the Winsock transport
 against a loopback server. No Nitro or RNW is needed:
 
 ```powershell
-cmake -S packages/ecr17-kit -B build-win
+cmake -S packages/ecr17 -B build-win
 cmake --build build-win --config Release
 ctest --test-dir build-win -C Release --output-on-failure
 ```
@@ -92,7 +92,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ## App setup
 
 ```bash
-npm install @padosoft/react-native-ecr17 @padosoft/ecr17-kit @padosoft/react-native-nitro-windows react-native-nitro-modules
+npm install @padosoft/react-native-ecr17 @padosoft/ecr17 @padosoft/react-native-nitro-windows react-native-nitro-modules
 ```
 
 > ⚠️ `@padosoft/react-native-nitro-windows` is **not published yet**. Until it is,

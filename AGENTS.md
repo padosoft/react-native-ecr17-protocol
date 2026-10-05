@@ -14,26 +14,34 @@ async Promise API to JS.
 A **bun monorepo** (`workspaces: ["packages/*", "apps/example"]`):
 
 ```
-packages/ecr17-kit/          @padosoft/ecr17-kit — the native library (no React)
+packages/ecr17/              @padosoft/ecr17 — the native library (no React)
 packages/react-native-ecr17/ @padosoft/react-native-ecr17 — the React Native binding
 apps/example/                Expo debug console (iOS / Android), a workspace
 apps/example-windows/        RNW console: npm, NOT a workspace (RNW pins an older RN)
-docs-site/                   documentation site (npm)
+apps/docs/                   documentation site (docmd): npm, NOT a workspace
+scripts/                     repo scripts, TypeScript run with bun (`bun scripts/x.ts`)
+Package.swift                the `Ecr17` Swift package (the core); SwiftPM needs it at the repo root
 ```
+
+Scripts are `.ts`, never `.mjs`/`.js` (except config files a tool requires as JS, e.g.
+`app.plugin.js`, `react-native.config.js`, `babel.config.js`). Root scripts run with `bun`;
+`apps/docs/scripts` run with `node` (≥ 22.18 strips types; `apps/docs/.node-version` is 24).
 
 A new standalone native package (e.g. a future Swift or Kotlin API) goes in `packages/`, a new
 example or tool app in `apps/`. Roadmap: README "Roadmap" section.
 
-- **`packages/ecr17-kit/` — `@padosoft/ecr17-kit`**, the React-free C++ core (namespace
-  `padosoft::ecr17`, headers `<Ecr17Kit/…>`): `Lcr` (LRC) → `PacketCodec` (framing) →
+- **`packages/ecr17/` — `@padosoft/ecr17`**, the React-free C++ core (namespace
+  `padosoft::ecr17`, headers `<ecr17/…>`): `Lcr` (LRC) → `PacketCodec` (framing) →
   `Ecr17Protocol` (builders) → `Ecr17Response` (parsers) → `Ecr17Session` (ACK/NAK +
   retransmit + timeout) → `Ecr17Client` (auto-connect, pre-send probe, money-safe retry).
   `Transport` is the byte-stream interface; `WinsockTransport` (Windows) and
-  `FakeTransport` (tests) implement it. Usable from native apps (CMake, the `Ecr17Kit` pod).
+  `FakeTransport` (tests) implement it. Usable from native apps: CMake (`ecr17::ecr17`), the `Ecr17` pod, the `Ecr17`
+  Swift package (root `Package.swift`, tags `X.Y.Z` from 2.0.0).
 - **`packages/react-native-ecr17/` — `@padosoft/react-native-ecr17`**, the Nitro binding (namespace
-  `margelo::nitro::ecr17`): `HybridEcr17Client` maps the Nitro types onto the Kit's
+  `margelo::nitro::ecr17`, pod `ReactNativeEcr17` = nitro.json `iosModuleName`; Android lib
+  stays `libEcr17.so`): `HybridEcr17Client` maps the Nitro types onto `@padosoft/ecr17`'s
   `Ecr17Client`; `NativeTransportAdapter` exposes the `Ecr17Transport` HybridObject
-  (Kotlin/Swift; the Kit's Winsock on Windows) as a Kit `Transport`. No protocol logic.
+  (Kotlin/Swift; the core's Winsock on Windows) as an `ecr17::Transport`. No protocol logic.
 Spec reference vendored in `docs/`.
 
 ## Mandatory workflow (Definition of Done)
@@ -41,11 +49,11 @@ A task/phase is done ONLY after BOTH loops below pass. In auto mode, proceed to
 the next phase only once complete.
 
 ### Local loop (per phase, before pushing)
-1. **Local tests green** — C++: the Kit's GoogleTest suite (core, session, client,
+1. **Local tests green** — C++: the core's GoogleTest suite (core, session, client,
    protocol flows; on Windows also the Winsock transport):
-   `cmake -S packages/ecr17-kit -B build-kit && cmake --build build-kit && ctest --test-dir build-kit --output-on-failure`
+   `cmake -S packages/ecr17 -B build-kit && cmake --build build-kit && ctest --test-dir build-kit --output-on-failure`
    (GoogleTest from `find_package` or FetchContent). Without cmake, a throwaway **g++ harness**
-   still works: `g++ -std=c++20 -I packages/ecr17-kit/cpp/include <harness>.cpp packages/ecr17-kit/cpp/src/*.cpp`.
+   still works: `g++ -std=c++20 -I packages/ecr17/cpp/include <harness>.cpp packages/ecr17/cpp/src/*.cpp`.
    TS: `cd packages/react-native-ecr17 && bunx tsc --noEmit -p tsconfig.ci.json`.
 2. **Local Copilot review** — `copilot --autopilot --yolo -p "/review …"`. Use a
    **focused** prompt ("read ONLY file X, check N things, answer in <=K lines") —
@@ -75,16 +83,16 @@ second independent gate, so a merged PR is "super robust" — never merge a PR t
 still has open, valid reviewer comments.
 
 ## CI
-- `cpp-tests` (fast, ~1 min): the real correctness gate — builds/runs the Kit's
-  GoogleTest suite (`cmake -S packages/ecr17-kit`). Keep it green.
+- `cpp-tests` (fast, ~1 min): the real correctness gate — builds/runs the core's
+  GoogleTest suite (`cmake -S packages/ecr17`). Keep it green.
 - `ts-checks` (fast): typecheck + nitrogen codegen.
 - **Windows has no CI job (by decision): verify it LOCALLY** on this Windows host
   (VS 2022 Build Tools / VS 2026 + Windows SDK in `D:\Windows Kits\10`):
-  1. Kit tests, Winsock transport included (no Nitro or RNW needed):
-     `cmake -S packages/ecr17-kit -B build-win && cmake --build build-win --config Release && ctest --test-dir build-win -C Release --output-on-failure`
+  1. Core tests, Winsock transport included (no Nitro or RNW needed):
+     `cmake -S packages/ecr17 -B build-win && cmake --build build-win --config Release && ctest --test-dir build-win -C Release --output-on-failure`
   2. RNW build + deploy of `apps/example-windows` (compiles the Nitro host DLL from
      `@padosoft/react-native-nitro-windows`, which collects this package's `nitroWindows`
-     sources and the Kit's; builds and registers the MSIX package). The host is not
+     sources and the core's; builds and registers the MSIX package). The host is not
      published yet: `apps/example-windows` links it from a react-native-support checkout next to this repo, so clone
      react-native-support next to this repo first:
      `cd apps/example-windows && npm install && npx react-native run-windows --arch x64`.
@@ -94,7 +102,7 @@ still has open, valid reviewer comments.
   3. Runtime smoke test (for Nitro/transport changes): temporarily point `index.js` at a
      script that creates the client and connects to a local fake terminal (Node TCP server);
      RN 0.84's Metro does NOT print `console.log`, so POST results to a local HTTP logger.
-  Required for any change under `packages/ecr17-kit/**`, `packages/react-native-ecr17/windows/**` or `packages/react-native-ecr17/cpp/**`.
+  Required for any change under `packages/ecr17/**`, `packages/react-native-ecr17/windows/**` or `packages/react-native-ecr17/cpp/**`.
 - `android-build` (~15-20 min, **manual dispatch only**:
   `gh workflow run "Android build" --ref <branch>`): compiles C++/Kotlin/Nitro
   via expo prebuild + gradle. The ONLY verifier of client/adapter/native code
@@ -106,14 +114,14 @@ still has open, valid reviewer comments.
 - 💰 **Money-critical — never blindly retry a financial command.** This terminal
   charges real cards. On a drop, reconnect the socket but do NOT re-send
   payments/reversals/pre-auths (double-charge); recover via `sendLastResult()`
-  (command `G`). The decision is in `packages/ecr17-kit/cpp/include/Ecr17Kit/RetryPolicy.hpp`, locked
+  (command `G`). The decision is in `packages/ecr17/cpp/include/ecr17/RetryPolicy.hpp`, locked
   by `test_retry_policy.cpp` and end to end by `Client.AFinancialCommandIsNeverResentAfterADrop`
-  (`packages/ecr17-kit/cpp/tests/test_client.cpp`, which replays every command against a drop). `Ecr17Session` resets its connection state per
+  (`packages/ecr17/cpp/tests/test_client.cpp`, which replays every command against a drop). `Ecr17Session` resets its connection state per
   transaction (`resetForNewTransaction`) so it's reusable across reconnects.
-- **Local C++ toolchain**: the Kit builds with CMake on any host (Windows: VS Build
+- **Local C++ toolchain**: the core builds with CMake on any host (Windows: VS Build
   Tools; macOS: Xcode clang + `brew install googletest`). A WinLibs **g++ 16** at
   `%LOCALAPPDATA%\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.POSIX.UCRT_*\mingw64\bin\g++.exe`
-  also compiles the core (`-std=c++20 -I packages/ecr17-kit/cpp/include packages/ecr17-kit/cpp/src/*.cpp`). Avira may
+  also compiles the core (`-std=c++20 -I packages/ecr17/cpp/include packages/ecr17/cpp/src/*.cpp`). Avira may
   quarantine a freshly-built `.exe` — a one-time AV exclusion fixes it. The Nitro binding
   (`HybridEcr17Client`, adapter, Kotlin/Swift) is NOT in the unit target: Android via the
   `android-build` job; iOS by building the Expo example on a Mac (`expo prebuild -p ios`,
@@ -155,15 +163,17 @@ still has open, valid reviewer comments.
   `SOH`+20+`EOT` has no LRC; `decode()` treats the buffer as exactly one frame.
 
 ## Conventions
-- C++20. Kit headers are included as `<Ecr17Kit/Name.hpp>` (from `packages/ecr17-kit/cpp/include`). A new
-  `packages/ecr17-kit/cpp/src/*.cpp` goes in `packages/ecr17-kit/CMakeLists.txt`; the pod, the binding's Android CMake and
-  the Windows vcxproj pick it up by glob. A new test goes in `packages/ecr17-kit/cpp/tests/CMakeLists.txt`.
+- C++20. Core headers are included as `<ecr17/Name.hpp>` (from `packages/ecr17/cpp/include`). A new
+  `packages/ecr17/cpp/src/*.cpp` goes in `packages/ecr17/CMakeLists.txt`; the pod, the binding's Android CMake and
+  the Windows vcxproj pick it up by glob. A new test goes in `packages/ecr17/cpp/tests/CMakeLists.txt`.
   New `packages/react-native-ecr17/cpp/**/*.cpp` (binding only) MUST be added to `packages/react-native-ecr17/android/CMakeLists.txt`;
   iOS globs via `nitro_module`, Windows via the `nitroWindows.sources` globs in package.json
   (a new folder needs a new glob).
 - Build tooling from `@padosoft/native-modules` (not on npm yet: private GitHub Packages,
-  installed with `GESCAT_NPM_TOKEN`): the podspec is one `nitro_module(…, kit: "Ecr17Kit")`
-  call, `android/build.gradle` applies `nitro-module.gradle`. Keep the native namespace in
+  installed with `GESCAT_NPM_TOKEN`): `ReactNativeEcr17.podspec` is `nitro_module(…)` plus
+  `native_dependency(s, "Ecr17", spm_url: <this repo>, …)` (SwiftPM when the app opts in,
+  else the `Ecr17` pod), `packages/ecr17/Ecr17.podspec` is `native_kit`,
+  `android/build.gradle` applies `nitro-module.gradle`. Keep the native namespace in
   `react-native.config.js` (`android.packageName`): autolinking can't read it from
   `ext.nitroModule`.
 - Windows: `packages/react-native-ecr17/windows/` (the Windows HybridObject + registration, compiled by the app's

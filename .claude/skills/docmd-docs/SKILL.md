@@ -1,11 +1,11 @@
 ---
 name: docmd-docs
-description: Maintain the docmd documentation site in docs-site.
+description: Maintain the docmd documentation site in apps/docs.
 ---
 
 # docmd Docs
 
-Use this skill when editing the `docs-site` documentation site.
+Use this skill when editing the `apps/docs` documentation site.
 
 ## Rules
 

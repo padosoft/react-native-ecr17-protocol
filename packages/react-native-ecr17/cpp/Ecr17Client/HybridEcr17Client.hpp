@@ -2,7 +2,7 @@
 
 #include <NitroModules/Promise.hpp>
 
-#include <Ecr17Kit/Ecr17Client.hpp>
+#include <ecr17/Ecr17Client.hpp>
 
 #include <functional>
 #include <memory>
@@ -13,7 +13,7 @@
 
 namespace margelo::nitro::ecr17 {
 
-// The JS-facing client: maps the Nitro types to the Kit's Ecr17Client (which owns
+// The JS-facing client: maps the Nitro types to @padosoft/ecr17's Ecr17Client (which owns
 // the protocol, the auto-connect and the money-safe retry policy) and runs each
 // command on a Nitro worker thread. No protocol logic lives here.
 class HybridEcr17Client : public HybridEcr17ClientSpec {
@@ -51,7 +51,7 @@ class HybridEcr17Client : public HybridEcr17ClientSpec {
     void setOnConnectionStateChange(const std::function<void(ConnectionState)>& callback) override;
 
    protected:
-    // The Kit client for the current configuration, created on first use. Must run
+    // The core client for the current configuration, created on first use. Must run
     // on the JS thread the first time on Android (see configure()).
     std::shared_ptr<padosoft::ecr17::Ecr17Client> client();
     // Runs `command` against the current client on a Nitro worker thread.

@@ -22,11 +22,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: README in sync (root mirrors packages/react-native-ecr17/README.md)
-        run: node scripts/sync-readme.mjs --check
-
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
+
+      - name: README in sync (root mirrors packages/react-native-ecr17/README.md)
+        run: bun scripts/sync-readme.ts --check
 
       - name: Install dependencies
         # The @padosoft tooling packages (@padosoft/config, the base of tsconfig.json /
@@ -35,7 +35,7 @@ jobs:
         # Typecheck and nitrogen need none of them (tsconfig.ci.json is
         # self-contained), so drop them before install to avoid registry auth.
         run: |
-          node scripts/strip-private-deps.mjs
+          bun scripts/strip-private-deps.ts
           rm -f bun.lock
           bun install
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Ecr17Kit/Transport.hpp>
+#include <ecr17/Transport.hpp>
 
 #include <memory>
 #include <vector>
@@ -10,9 +10,9 @@
 namespace margelo::nitro::ecr17 {
 
 // Adapts the native Nitro transport (the Ecr17Transport HybridObject: Swift on iOS,
-// Kotlin on Android, the Kit's WinsockTransport on Windows) to the Kit's Transport
+// Kotlin on Android, @padosoft/ecr17's WinsockTransport on Windows) to @padosoft/ecr17's Transport
 // interface. Converts between std::vector<uint8_t> and Nitro's ArrayBuffer, and
-// turns the spec's async connect() into the blocking connect the Kit client expects.
+// turns the spec's async connect() into the blocking connect the core client expects.
 class NativeTransportAdapter final : public padosoft::ecr17::Transport {
    public:
     explicit NativeTransportAdapter(std::shared_ptr<HybridEcr17TransportSpec> transport);
