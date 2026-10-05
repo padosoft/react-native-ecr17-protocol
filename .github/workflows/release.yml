@@ -14,9 +14,15 @@ env:
     NPM_CONFIG_PROVENANCE: true
 
 jobs:
+  # @padosoft/ecr17's Node-API addon, built and tested on each shipped platform.
+  node-prebuilds:
+    uses: ./.github/workflows/node.yml
+    secrets: inherit
+
   release:
     if: github.repository == 'padosoft/react-native-ecr17-protocol'
     name: Release
+    needs: node-prebuilds
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -32,6 +38,20 @@ jobs:
         env:
           GESCAT_NPM_TOKEN: ${{ secrets.GESCAT_NPM_TOKEN }}
           
+      # packages/ecr17/prebuilds/<platform>-<arch>/ecr17.node, shipped in the npm package
+      # (src/native.ts loads it; Node-API is ABI-stable across Node versions).
+      - name: Collect the Node addon prebuilds
+        uses: actions/download-artifact@v4
+        with:
+          pattern: prebuild-*
+          path: packages/ecr17/prebuilds
+
+      - name: Name the prebuild folders by platform
+        working-directory: packages/ecr17/prebuilds
+        run: |
+          for dir in prebuild-*; do mv "$dir" "${dir#prebuild-}"; done
+          find . -name ecr17.node
+
       - name: Create Release Pull Request or Publish to NPM
         id: changesets
         uses: changesets/action@v1
@@ -80,6 +100,10 @@ jobs:
             # The RN package's build output comes from the publish path (codegen); rebuild if absent.
             if [ "$NAME" = "@padosoft/react-native-ecr17" ] && [ ! -d "${dir}lib" ]; then
               (cd "$dir" && bun run codegen)
+            fi
+            # @padosoft/ecr17's Node.js entry (dist/) also comes from the publish path.
+            if [ "$NAME" = "@padosoft/ecr17" ] && [ ! -d "${dir}dist" ]; then
+              (cd "$dir" && bun run build)
             fi
             (cd "$dir" && npm publish --registry=https://npm.pkg.github.com)
           done

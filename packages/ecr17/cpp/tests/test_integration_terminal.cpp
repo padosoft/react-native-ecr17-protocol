@@ -10,9 +10,8 @@
 //   ctest --test-dir build --output-on-failure -R Integration
 //
 // It connects over real TCP, sends a Terminal Status ('s') request through the
-// full C++ core (builder -> session/ACK-NAK -> parser) and prints the result.
-
-#if !defined(_WIN32)
+// full C++ core (builder -> session/ACK-NAK -> parser) and prints the result, on the
+// host's production transport (PosixTransport, or WinsockTransport on Windows).
 
 #include <gtest/gtest.h>
 
@@ -22,8 +21,14 @@
 
 #include "ecr17/Ecr17Protocol.hpp"
 #include "ecr17/Ecr17Response.hpp"
-#include "PosixTcpTransport.hpp"
 #include "ecr17/Ecr17Session.hpp"
+#if defined(_WIN32)
+#include "ecr17/WinsockTransport.hpp"
+using HostTransport = padosoft::ecr17::WinsockTransport;
+#else
+#include "ecr17/PosixTransport.hpp"
+using HostTransport = padosoft::ecr17::PosixTransport;
+#endif
 
 using namespace padosoft::ecr17;
 
@@ -48,8 +53,8 @@ TEST(Integration, RealTerminalStatus) {
     const int port = portEnv ? std::atoi(portEnv) : 10000;
     const std::string terminalId = idEnv ? idEnv : "00000000";
 
-    PosixTcpTransport transport;
-    transport.connect(Endpoint{host, port, 0});
+    HostTransport transport;
+    transport.connect(Endpoint{host, port, 5000});
 
     SessionConfig cfg;
     cfg.lrcMode = lrcModeFromEnv();
@@ -68,5 +73,3 @@ TEST(Integration, RealTerminalStatus) {
 
     transport.disconnect();
 }
-
-#endif  // !_WIN32

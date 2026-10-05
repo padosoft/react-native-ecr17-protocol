@@ -95,6 +95,11 @@
           "icon": "monitor"
         },
         {
+          "title": "Node.js",
+          "path": "/nodejs",
+          "icon": "server"
+        },
+        {
           "title": "Configuration",
           "path": "/configuration",
           "icon": "sliders-horizontal"

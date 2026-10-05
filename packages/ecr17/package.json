@@ -1,7 +1,7 @@
 {
 	"name": "@padosoft/ecr17",
 	"version": "2.0.0",
-	"description": "The ECR17 (Nexi) payment-terminal protocol as a React-free C++20 library: framing, LRC, commands, parsers, the ACK/NAK session and a money-safe client, plus a Winsock transport for Windows. The native core of @padosoft/react-native-ecr17, usable from native apps (CMake, CocoaPods, Swift Package Manager).",
+	"description": "The ECR17 (Nexi) payment-terminal protocol: a React-free C++20 core (framing, LRC, commands, parsers, the ACK/NAK session and a money-safe client) with TCP transports for POSIX and Windows, and a Node.js API over it (Node-API). The native core of @padosoft/react-native-ecr17, usable from Node.js and native apps (CMake, CocoaPods, Swift Package Manager).",
 	"author": "padosoft",
 	"license": "MIT",
 	"homepage": "https://github.com/padosoft/react-native-ecr17-protocol/tree/main/packages/ecr17#readme",
@@ -10,19 +10,44 @@
 		"url": "git+https://github.com/padosoft/react-native-ecr17-protocol.git",
 		"directory": "packages/ecr17"
 	},
-	"main": "app.plugin.js",
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.mjs",
+	"types": "./dist/index.d.cts",
+	"exports": {
+		".": {
+			"import": {
+				"types": "./dist/index.d.mts",
+				"default": "./dist/index.mjs"
+			},
+			"require": {
+				"types": "./dist/index.d.cts",
+				"default": "./dist/index.cjs"
+			}
+		},
+		"./app.plugin.js": "./app.plugin.js",
+		"./package.json": "./package.json"
+	},
+	"engines": {
+		"node": ">=20"
+	},
 	"expo": {
 		"plugin": "./app.plugin.js"
 	},
 	"files": [
+		"dist",
+		"prebuilds",
 		"CMakeLists.txt",
 		"Ecr17.podspec",
 		"app.plugin.js",
 		"react-native.config.js",
 		"cpp/include",
 		"cpp/src",
+		"posix/include",
+		"posix/src",
 		"windows/include",
 		"windows/src",
+		"node/addon.cpp",
+		"node/CMakeLists.txt",
 		"README.md"
 	],
 	"publishConfig": {
@@ -42,7 +67,12 @@
 		}
 	},
 	"scripts": {
-		"test": "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build && ctest --test-dir build --output-on-failure"
+		"build": "tsdown",
+		"build:node": "cmake-js compile --directory node --out build",
+		"test": "bun run test:cpp && bun run test:node",
+		"test:cpp": "cmake -S . -B build-cpp -DCMAKE_BUILD_TYPE=Debug && cmake --build build-cpp && ctest --test-dir build-cpp --output-on-failure",
+		"test:node": "node --test \"test/*.test.ts\"",
+		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@padosoft/native-modules": "^1.5.0"
@@ -54,5 +84,12 @@
 		"expo": {
 			"optional": true
 		}
+	},
+	"devDependencies": {
+		"@padosoft/config": "^1.5.0",
+		"@types/node": "^26.6.4",
+		"cmake-js": "^8.0.0",
+		"node-addon-api": "^8.9.2",
+		"tsdown": "^0.23.0"
 	}
 }

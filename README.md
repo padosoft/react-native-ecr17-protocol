@@ -159,23 +159,22 @@ first-class:
 | Android native transport (Kotlin TCP) | ✅ *(CI-built)* |
 | iOS native transport (Swift / Network.framework) | ✅ *(verified on device)* |
 | Windows native transport (C++ / Winsock, React Native Windows New Arch) | 🧪 *(built, loopback-tested and smoke-tested in the app locally; not yet verified on a terminal)* |
-| Native C++ library, usable without React Native ([`@padosoft/ecr17`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/packages/ecr17)) | ✅ *(CMake, CocoaPods, Swift Package Manager; Winsock transport on Windows)* |
+| Native C++ library, usable without React Native ([`@padosoft/ecr17`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/packages/ecr17)) | ✅ *(CMake, CocoaPods, Swift Package Manager; POSIX and Winsock transports)* |
+| Node.js API ([`@padosoft/ecr17`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/packages/ecr17#nodejs): the same JS API, Node-API addon over the same C++ client) | ✅ *(CI-tested on Linux, macOS and Windows against a fake terminal; not yet on a physical terminal)* |
 
 ## 🗺️ Roadmap
 
-The protocol lives in a React-free native library, `@padosoft/ecr17`, so native apps can use it
-without React Native. Next:
+The protocol lives in a React-free native library, `@padosoft/ecr17`, so Node.js and native apps
+can use it without React Native. Next:
 
 | Item | What |
 |------|------|
-| **Node.js API** | A Node-API addon over the C++ core, with a typed TypeScript API (built with tsdown), for Node.js POS back-ends and tools. Same money-safe client, no second implementation. |
 | **Native Swift API** | `packages/ecr17/ios`: a Swift API over the C++ core (Swift C++ interop), added to the `Ecr17` Swift package and pod, with the Network.framework transport, for iOS, iPadOS and macOS apps. The React Native transport then delegates to it. |
 | **Native Kotlin API** | `packages/ecr17/android`: an Android library over the C++ core (JNI) with the socket transport (incl. the write-free pre-send probe), for Android apps. The React Native transport then delegates to it. |
 | **C API + .NET** | `ecr17c.dll`, a flat C API over the core, and a `Padosoft.Ecr17` NuGet package on top of it, for Windows POS software in C#, and any language with a C FFI (same pattern as SharedStorageKit). |
-| **POSIX transport** | A TCP transport for Linux and macOS in `@padosoft/ecr17` (desktop, server, command-line tools; today it exists only in the integration test). |
-| **Prebuilt binaries** | Committed `.xcframework` / `.aar` builds of the core (`padosoft-prebuild`), so apps don't compile the core. |
+| **Prebuilt binaries** | Committed `.xcframework` / `.aar` builds of the core (`padosoft-prebuild`), so apps don't compile the core (the Node.js addon already ships prebuilt). |
 | **Publishing** | `@padosoft/ecr17` on npm; drop the GitHub Packages / linked setup once `@padosoft/native-modules` and the Windows Nitro host are on npm. |
-| **Windows verification** | A run against a physical terminal, and a Windows CI job for the core's Winsock tests. |
+| **Terminal verification** | Runs of the Windows app and the Node.js API against a physical terminal, and a Windows CI job for the core's C++ Winsock tests (the Node.js job already exercises the Winsock transport). |
 
 ## Requirements
 
@@ -352,7 +351,9 @@ packages/
 │   │                          # Ecr17Response (parsers) · Ecr17Session (ACK/NAK, retransmit, timeouts)
 │   │                          # Ecr17Client (auto-connect, pre-send probe, money-safe retry) · Transport
 │   ├── cpp/tests/             # GoogleTest + FakeTransport
+│   ├── posix/                 # PosixTransport, macOS / Linux (+ loopback tests)
 │   ├── windows/               # WinsockTransport (+ loopback tests)
+│   ├── src/, node/            # Node.js API: TypeScript client + Node-API addon
 │   └── Ecr17.podspec          # the Ecr17 pod (Package.swift at the repo root is the Swift package)
 └── react-native-ecr17/        # @padosoft/react-native-ecr17 — the Nitro binding, no protocol logic
     ├── cpp/Ecr17Client/       # HybridEcr17Client: Nitro types <-> ecr17::Ecr17Client
@@ -377,8 +378,13 @@ cmake --build build && ctest --test-dir build --output-on-failure
 every response parser, the documented payment / reversal / re-pay / progress
 / receipt / NAK-retransmit / timeout flows, and the client: auto-connect, the
 reconnect before a send, and — for every command — that a financial command is
-never re-sent after a drop (all against an in-memory `FakeTransport`). On Windows
-the same command also runs the Winsock transport's loopback tests.
+never re-sent after a drop (all against an in-memory `FakeTransport`). The same
+command also runs the host transport's loopback tests: `PosixTransport` on macOS and
+Linux (14 tests, incl. no SIGPIPE on a closed peer), `WinsockTransport` on Windows.
+
+The Node.js API has its own end-to-end tests (TypeScript → Node-API addon → core → TCP →
+a scripted fake terminal), incl. a payment interrupted by a drop that must go out exactly
+once: `cd packages/ecr17 && bun run build:node && bun run test:node`.
 
 ## 🧾 Tokenization & receipts
 

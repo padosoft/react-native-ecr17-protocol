@@ -311,6 +311,56 @@
 - Scripts are `.ts`: root ones run with `bun`, `apps/docs/scripts` with `node` ≥ 22.18
   (type stripping; `apps/docs/.node-version` is 24, `"type": "module"` for top-level await).
 
+## Node.js API (`@padosoft/ecr17` src/ + node/) — 2026-10-05
+- Shape: TypeScript `Ecr17Client` (same API/types as the RN binding) → `node/addon.cpp`
+  (Node-API via node-addon-api 8, NAPI_VERSION 8) → `padosoft::ecr17::Ecr17Client` →
+  `PosixTransport` / `WinsockTransport`. The addon converts requests and returns the core's
+  RAW structs; `src/mappers.ts` mirrors `HybridEcr17Client.cpp`'s mapping (keep in sync).
+- Commands block up to `responseTimeoutMs` (a payment waits for the cardholder): each client
+  owns ONE detached worker thread with a FIFO queue — never Napi::AsyncWorker, which would
+  park libuv's 4 pool threads (fs/dns/crypto) behind terminals.
+- Results come back through ONE `TypedThreadSafeFunction` per client, Ref'd only while
+  commands are pending (so an idle client never keeps the process alive); event listeners are
+  per-event TSFNs, always Unref'd. Each completion holds a `shared_ptr<Worker>` (NOT the
+  TSFN context pointer, which can dangle after the worker thread releases the TSFN) and a
+  persistent reference to the JS wrapper, so a client awaiting a payment can't be GC'd (its
+  finalizer would close the socket mid-payment). On env teardown a completion is LEAKED, never
+  destroyed off the main thread (its napi handles).
+- **Results and events MUST share one thread-safe function** (one FIFO queue per client).
+  With a TSFN per event type, a payment's promise sometimes resolved BEFORE its progress
+  callback ran (1 run in ~20). Listeners live in a main-thread-only struct; other threads
+  reach it through a weak_ptr, so FunctionReferences are never freed off the main thread.
+- **Env teardown finalizes TSFNs BEFORE ObjectWrap finalizers.** `~NativeClient` →
+  `disconnect()` → a "disconnected" event into the finalized TSFN → SIGABRT at process exit
+  (exit 134, found with lldb). Fixes: the TSFN finalizer marks the queue released under the
+  post lock (posts are then dropped), and `shutdown()` detaches the core's callbacks first.
+  Teardown scenarios (never closed, process.exit with a pending command, close during a
+  command, throwing listener) all exit 0.
+- A JS exception left pending by a TSFN call_js is DROPPED silently by Node: the TS layer wraps
+  listeners and rethrows on `process.nextTick` (→ uncaughtException, EventEmitter-like).
+- `close()` rejects queued commands and disconnects; it never joins the worker (it may be
+  waiting for a cardholder). A command on the wire then fails like a drop: money-safety holds.
+- `isConnected()` / `disconnect()` are synchronous on the main thread: the probe is instant and
+  disconnect joins the reader (≤ ~100 ms).
+- `PosixTransport` = line-by-line port of `WinsockTransport` (poll instead of select). POSIX
+  extras: `MSG_NOSIGNAL` (Linux) / `SO_NOSIGPIPE` (macOS) — a write to a closed peer would
+  otherwise SIGPIPE-kill the Node process; EINTR retries; non-blocking connect + poll(POLLOUT)
+  + SO_ERROR for the timeout; FD_CLOEXEC.
+- The core does NOT trim the 19-char PAN field (`at(p, 13, 19)`), on RN either: tests must use
+  a full-width PAN. Parity over prettiness.
+- The money-safety Node test was mutation-checked: making `shouldRetryAfterReconnect` ignore
+  `safeToRetry` fails it ("the payment must go out exactly once").
+- `node --test "test/*.test.ts"` runs TS directly (Node ≥ 22.18 strips types; tests import
+  only `node:` modules + ../src). CI therefore installs ONLY cmake-js + node-addon-api into
+  `$RUNNER_TEMP/tools` with `NODE_PATH` pointing there (node/CMakeLists.txt resolves
+  `require('node-addon-api').include_dir`), not the workspace (Expo, RN, private packages).
+- `@padosoft/config`'s TS preset sets `isolatedDeclarations` + `noPropertyAccessFromIndexSignature`:
+  keep `tsdown.config.ts` out of the tsconfig `include`, and `process.env["X"]` needs a
+  `biome-ignore lint/complexity/useLiteralKeys`. tsdown needs `shims: true` for
+  `import.meta.url` in the CJS build.
+- The `exports` map must keep `./package.json` (Android CMake + Expo resolve it) and
+  `./app.plugin.js` reachable.
+
 ## ECR17 protocol facts (from docs/)
 - Status command code is lowercase `'s'` (0x73). Payment `'P'` request = 167 bytes.
 - App frame = `STX(0x02)` payload `ETX(0x03)` `LRC`. LRC = `0x7F` XOR-folded;

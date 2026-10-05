@@ -8,7 +8,7 @@
 		"lint": "biome check .",
 		"lint:fix": "biome check . --write --unsafe",
 		"version-packages": "changeset version && bun i --lockfile-only",
-		"publish-packages": "changeset version && (cd packages/react-native-ecr17 && bun run codegen) && changeset publish",
+		"publish-packages": "changeset version && (cd packages/react-native-ecr17 && bun run codegen) && (cd packages/ecr17 && bun run build) && changeset publish",
 		"sync:readme": "bun scripts/sync-readme.ts",
 		"check:readme": "bun scripts/sync-readme.ts --check",
 		"dev": "npm --prefix apps/docs run dev",
