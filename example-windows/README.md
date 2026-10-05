@@ -56,8 +56,8 @@ re-apply the custom resolver and the SDK pin afterwards.
 
 ## Verifying a native change
 
-There is no Windows CI job. After changing `package/windows/**` or `package/cpp/**`,
-build and run this app and run the Winsock transport tests locally.
+There is no Windows CI job. After changing `kit/**`, `package/windows/**` or
+`package/cpp/**`, build and run this app and run the Kit's tests (Winsock included) locally.
 
 `npm run windows` builds and deploys the app as an MSIX package. That needs Visual
 Studio's "Windows application development" workload (MSIX packaging tools). The built
@@ -75,7 +75,7 @@ msbuild windows/Ecr17Example.sln /t:Ecr17Example /restore /m /p:Configuration=De
 ```
 
 ```bash
-cmake -S ../package/windows/tests -B ../build-win
+cmake -S ../kit -B ../build-win
 cmake --build ../build-win --config Release
 ctest --test-dir ../build-win -C Release --output-on-failure
 ```

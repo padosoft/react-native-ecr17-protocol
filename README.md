@@ -164,17 +164,32 @@ first-class:
 - **React Native** 0.76+ (new architecture) — the example uses Expo SDK 57 / RN 0.86
 - **React Native Windows** 0.84+ (New Architecture) for Windows — see [Windows](#-windows)
 - **react-native-nitro-modules** (peer dependency)
+- The protocol engine, [`@padosoft/ecr17-kit`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/kit),
+  and the native build helpers, `@padosoft/native-modules`, are dependencies: they install
+  with the package. ⚠️ Neither is on npm yet (the helpers are on the padosoft GitHub Packages
+  registry for now).
 - A Nexi Group ECR17-compatible terminal configured for **LAN integration**
 
 ## 📦 Installation
 
 ```bash
-bun add @padosoft/react-native-ecr17 react-native-nitro-modules
-# or: npm install react-native-ecr17 react-native-nitro-modules
+bun add @padosoft/react-native-ecr17 @padosoft/ecr17-kit react-native-nitro-modules
 cd ios && pod install   # iOS
 ```
 
 > Nitro module: requires the RN **new architecture** (default on 0.76+).
+
+The protocol engine is a separate, React-free C++ library,
+[`@padosoft/ecr17-kit`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/kit)
+(also usable from native apps). On iOS its pod must be in the app's Podfile. With Expo,
+add its config plugin to `app.json` (it uses `@padosoft/expo`, so add that too):
+
+```json
+{ "expo": { "plugins": ["@padosoft/ecr17-kit"] } }
+```
+
+In a bare app, listing `@padosoft/ecr17-kit` as a direct dependency (as above) is
+enough: React Native autolinking finds `Ecr17Kit.podspec`. Android needs nothing extra.
 
 ### 🪟 Windows
 
@@ -297,29 +312,33 @@ LRC = `0x7F` XOR-folded; framing bytes folded in are selectable via `lrcMode`
 ## 🏗️ Architecture
 
 ```
-package/cpp/
-├── Lcr/            # LRC (4 modes, base 0x7F)
-├── PacketCodec/    # framing: STX·ETX·SOH·EOT·ACK·NAK + LRC
-├── Ecr17Protocol/  # request builders (all commands), fixed-width + validated
-├── Ecr17Response/  # response field parsers -> plain structs
-├── Session/        # ACK/NAK + retransmit + timeout orchestration
-├── Transport/      # abstract Transport + NativeTransportAdapter + FakeTransport (tests)
-└── Ecr17Client/    # HybridEcr17Client (Nitro async API)
-package/android/.../HybridEcr17Transport.kt   # Kotlin TCP transport
-package/ios/HybridEcr17Transport.swift        # Swift (Network.framework) transport
-package/windows/Ecr17/                        # RNW DLL: Nitro install shim + C++ Winsock transport
+kit/                       # @padosoft/ecr17-kit — React-free C++20, usable from native apps
+├── cpp/include/Ecr17Kit/  # Lcr (LRC) · PacketCodec (framing) · Ecr17Protocol (builders)
+│                          # Ecr17Response (parsers) · Ecr17Session (ACK/NAK, retransmit, timeouts)
+│                          # Ecr17Client (auto-connect, pre-send probe, money-safe retry) · Transport
+├── cpp/tests/             # GoogleTest + FakeTransport
+└── windows/               # WinsockTransport (+ loopback tests)
+package/                   # @padosoft/react-native-ecr17 — the Nitro binding, no protocol logic
+├── cpp/Ecr17Client/       # HybridEcr17Client: Nitro types <-> Kit Ecr17Client
+├── cpp/Transport/         # NativeTransportAdapter: Ecr17Transport HybridObject -> Kit Transport
+├── android/.../HybridEcr17Transport.kt   # Kotlin TCP transport
+├── ios/HybridEcr17Transport.swift        # Swift (Network.framework) transport
+└── windows/Ecr17/                        # RNW DLL: Nitro install shim + the Kit's Winsock transport
 ```
 
 ## 🧪 Testing
 
 ```bash
-cmake -S package/cpp/tests -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S kit -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build && ctest --test-dir build --output-on-failure
 ```
 
-83 tests cover LRC, packet (de)framing edge cases, every builder's byte layout,
-every response parser, and the documented payment / reversal / re-pay / progress
-/ receipt / NAK-retransmit / timeout flows (against an in-memory `FakeTransport`).
+100 tests cover LRC, packet (de)framing edge cases, every builder's byte layout,
+every response parser, the documented payment / reversal / re-pay / progress
+/ receipt / NAK-retransmit / timeout flows, and the client: auto-connect, the
+reconnect before a send, and — for every command — that a financial command is
+never re-sent after a drop (all against an in-memory `FakeTransport`). On Windows
+the same command also runs the Winsock transport's loopback tests.
 
 ## 🧾 Tokenization & receipts
 
@@ -343,7 +362,7 @@ An opt-in C++ integration test runs the full core over a real TCP socket. It is
 **skipped** unless `ECR17_TERMINAL_HOST` is set:
 
 ```bash
-cmake -S package/cpp/tests -B build && cmake --build build
+cmake -S kit -B build && cmake --build build
 ECR17_TERMINAL_HOST=192.168.1.50 ECR17_TERMINAL_PORT=10000 \
 ECR17_TERMINAL_ID=00000000 ECR17_LRC_MODE=std \
 ctest --test-dir build -R Integration --output-on-failure

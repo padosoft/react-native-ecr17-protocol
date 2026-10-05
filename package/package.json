@@ -26,7 +26,6 @@
 		"cpp",
 		"nitro.json",
 		"android/build.gradle",
-		"android/fix-prefab.gradle",
 		"android/gradle.properties",
 		"android/CMakeLists.txt",
 		"android/src",
@@ -55,6 +54,10 @@
 	"publishConfig": {
 		"access": "public",
 		"registry": "https://registry.npmjs.org/"
+	},
+	"dependencies": {
+		"@padosoft/ecr17-kit": "^1.0.0",
+		"@padosoft/native-modules": "^1.5.0"
 	},
 	"devDependencies": {
 		"@types/react": "19.2.0",

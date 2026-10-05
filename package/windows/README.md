@@ -1,8 +1,8 @@
 # @padosoft/react-native-ecr17 for React Native Windows
 
 Native module for **React Native Windows New Architecture** (Fabric / WinAppSDK, RNW 0.84+).
-Same JS API and the same shared C++ protocol core as iOS and Android. Only the
-TCP transport is Windows-specific (Winsock).
+Same JS API and the same C++ protocol core (`@padosoft/ecr17-kit`) as iOS and Android.
+Only the TCP transport is Windows-specific: the Kit's `WinsockTransport`.
 
 ## How it works
 
@@ -23,8 +23,8 @@ margelo::nitro::install(runtime, dispatcher)
         │
         ▼
 HybridObjectRegistry
-  "Ecr17Client"    → HybridEcr17Client          ../cpp (shared with iOS/Android)
-  "Ecr17Transport" → HybridEcr17TransportWindows Ecr17/HybridEcr17TransportWindows.cpp (Winsock)
+  "Ecr17Client"    → HybridEcr17Client          ../cpp → Ecr17Kit::Ecr17Client (shared with iOS/Android)
+  "Ecr17Transport" → HybridEcr17TransportWindows Ecr17/ → Ecr17Kit::WinsockTransport (kit/windows)
 ```
 
 1. **Autolinking.** The package `react-native.config.js` points RNW at `windows/Ecr17.sln`.
@@ -32,8 +32,10 @@ HybridObjectRegistry
    from `@padosoft/react-native-ecr17/windows-autolink`, which sets
    `react-native-nitro-modules` `platforms.windows` to `null`.
 3. **Nitro C++ from node_modules.** `Ecr17.vcxproj` compiles the app's
-   `react-native-nitro-modules/cpp` (minus `views/`), the shared `../cpp` core and
-   the nitrogen specs in `../nitrogen/generated/shared/c++`.
+   `react-native-nitro-modules/cpp` (minus `views/`), the binding in `../cpp`, the
+   Kit's `cpp/src` and `windows/src` (`@padosoft/ecr17-kit`, found in `node_modules`
+   or, in this repo, `../kit`; override with `/p:Ecr17KitDir=…`) and the nitrogen
+   specs in `../nitrogen/generated/shared/c++`.
 4. **MSVC header map.** Nitro and nitrogen include `<NitroModules/Foo.hpp>`.
    iOS/Android get that prefix from a header map; MSVC has none. Before compiling,
    MSBuild runs `../scripts/windows-nitro-shims.mjs`, which writes one-line shims to
@@ -46,7 +48,8 @@ another Nitro library in the same app ships the same shim, the two conflict.
 
 ## Transport and payment safety
 
-`HybridEcr17TransportWindows` mirrors the Kotlin transport:
+`HybridEcr17TransportWindows` is the Nitro face of the Kit's `WinsockTransport`, which
+mirrors the Kotlin transport:
 
 - TCP with `TCP_NODELAY` and a background reader thread.
 - `isConnected()` is a **non-destructive, write-free** liveness probe:
@@ -57,15 +60,14 @@ another Nitro library in the same app ships the same shim, the two conflict.
 - `onDisconnect` fires exactly once per unexpected drop, never for `disconnect()`.
 
 The money-safety rules are unchanged: a financial command is never re-sent after
-a drop (`package/cpp/Session/RetryPolicy.hpp`). Recover a lost result with
+a drop (`kit/cpp/include/Ecr17Kit/RetryPolicy.hpp`). Recover a lost result with
 `sendLastResult()` (command `G`).
 
-`tests/` holds a standalone CMake + GoogleTest suite that runs the real Winsock
-transport against a loopback server (no RNW needed):
+The Kit's tests run the protocol core, the client and, on Windows, the Winsock
+transport against a loopback server. No Nitro, no RNW, no nitrogen needed:
 
 ```powershell
-cd package; npx nitrogen; cd ..
-cmake -S package/windows/tests -B build-win
+cmake -S kit -B build-win
 cmake --build build-win --config Release
 ctest --test-dir build-win -C Release --output-on-failure
 ```

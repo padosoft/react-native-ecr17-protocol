@@ -1,39 +1,18 @@
-require "json"
-
-package = JSON.parse(File.read(File.join(__dir__, "package.json")))
+# The whole podspec comes from @padosoft/native-modules' nitro_module: metadata from
+# package.json, the module's sources plus nitrogen's, React-jsi/callinvoker and the
+# dependency on the protocol core, the Ecr17Kit pod (@padosoft/ecr17-kit).
+require File.join(
+  File.dirname(`node --print "require.resolve('@padosoft/native-modules/package.json')"`.strip),
+  "ruby/helpers",
+)
+require_from_node_modules("@padosoft/native-modules", "ruby/nitro_module")
 
 Pod::Spec.new do |s|
-  s.name         = "Ecr17"
-  s.version      = package["version"]
-  s.summary      = package["description"]
-  s.homepage     = package["homepage"]
-  s.license      = package["license"]
-  s.authors      = package["author"]
-
-  s.platforms    = { :ios => min_ios_version_supported, :visionos => 1.0 }
-  s.source       = { :git => "https://github.com/padosoft/react-native-ecr17-protocol.git", :tag => "#{s.version}" }
-
-  s.source_files = [
-    # Implementation (Swift)
-    "ios/**/*.{swift}",
-    # Autolinking/Registration (Objective-C++)
-    "ios/**/*.{m,mm}",
-    # Implementation (C++ objects)
-    "cpp/**/*.{hpp,cpp}",
-  ]
-
-  s.exclude_files = [
-    "cpp/tests/**/*"
-  ]
-
-  s.pod_target_xcconfig = {
-    'HEADER_SEARCH_PATHS' => '"$(PODS_TARGET_SRCROOT)/cpp"'
-  }
-
-  load 'nitrogen/generated/ios/Ecr17+autolinking.rb'
-  add_nitrogen_files(s)
-
-  s.dependency 'React-jsi'
-  s.dependency 'React-callinvoker'
-  install_modules_dependencies(s)
+  nitro_module(s, dir: __dir__, name: "Ecr17", kit: "Ecr17Kit") do
+    # nitrogen already set pod_target_xcconfig: add to it, don't replace it.
+    xcconfig = s.attributes_hash["pod_target_xcconfig"] || {}
+    s.pod_target_xcconfig = xcconfig.merge(
+      "HEADER_SEARCH_PATHS" => [xcconfig["HEADER_SEARCH_PATHS"], '"$(PODS_TARGET_SRCROOT)/cpp"'].compact.join(" "),
+    )
+  end
 end

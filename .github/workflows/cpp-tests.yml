@@ -13,7 +13,7 @@ concurrency:
 jobs:
   cpp-tests:
     if: github.repository == 'padosoft/react-native-ecr17-protocol'
-    name: Build & run C++ tests
+    name: Build & run C++ tests (Ecr17Kit)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,7 +25,7 @@ jobs:
           sudo apt-get install -y cmake ninja-build g++
 
       - name: Configure
-        run: cmake -S package/cpp/tests -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S kit -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release

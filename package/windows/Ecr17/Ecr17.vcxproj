@@ -36,6 +36,10 @@
     <!-- The package root (holds cpp/, nitrogen/, scripts/). -->
     <Ecr17PackageDir Condition="'$(Ecr17PackageDir)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</Ecr17PackageDir>
     <Ecr17GeneratedDir>$(Ecr17PackageDir)nitrogen\generated\shared\c++\</Ecr17GeneratedDir>
+    <!-- The protocol core (@padosoft/ecr17-kit): node_modules first, then this repo's kit/. -->
+    <Ecr17KitDir Condition="'$(Ecr17KitDir)' == '' and '$(SolutionDir)' != '' and '$(SolutionDir)' != '*Undefined*'">$([MSBuild]::GetDirectoryNameOfFileAbove($(SolutionDir), 'node_modules\@padosoft\ecr17-kit\package.json'))\node_modules\@padosoft\ecr17-kit\</Ecr17KitDir>
+    <Ecr17KitDir Condition="'$(Ecr17KitDir)' == '' or !Exists('$(Ecr17KitDir)package.json')">$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildThisFileDirectory), 'node_modules\@padosoft\ecr17-kit\package.json'))\node_modules\@padosoft\ecr17-kit\</Ecr17KitDir>
+    <Ecr17KitDir Condition="!Exists('$(Ecr17KitDir)package.json')">$([System.IO.Path]::GetFullPath('$(Ecr17PackageDir)..\kit\'))</Ecr17KitDir>
     <RunAutolinkCheck>false</RunAutolinkCheck>
     <RunCodegenWindows>false</RunCodegenWindows>
   </PropertyGroup>
@@ -110,6 +114,8 @@
         $(MSBuildThisFileDirectory)..\include;
         $(Ecr17PackageDir)cpp;
         $(Ecr17PackageDir)cpp\Ecr17Client;
+        $(Ecr17KitDir)cpp\include;
+        $(Ecr17KitDir)windows\include;
         $(Ecr17GeneratedDir);
         $(NitroModulesDir)cpp\core;
         $(NitroModulesDir)cpp\entrypoint;
@@ -166,15 +172,13 @@
       <DependentUpon>ReactPackageProvider.idl</DependentUpon>
     </ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
-    <!-- Shared C++ protocol core (same sources as android/CMakeLists.txt) -->
+    <!-- Nitro binding (package/cpp) -->
     <ClCompile Include="$(Ecr17PackageDir)cpp\Ecr17.cpp" />
     <ClCompile Include="$(Ecr17PackageDir)cpp\Ecr17Client\HybridEcr17Client.cpp" />
-    <ClCompile Include="$(Ecr17PackageDir)cpp\Ecr17Protocol\Ecr17Protocol.cpp" />
-    <ClCompile Include="$(Ecr17PackageDir)cpp\Ecr17Response\Ecr17Response.cpp" />
-    <ClCompile Include="$(Ecr17PackageDir)cpp\Lcr\Lcr.cpp" />
-    <ClCompile Include="$(Ecr17PackageDir)cpp\PacketCodec\PacketCodec.cpp" />
-    <ClCompile Include="$(Ecr17PackageDir)cpp\Session\Ecr17Session.cpp" />
     <ClCompile Include="$(Ecr17PackageDir)cpp\Transport\NativeTransportAdapter.cpp" />
+    <!-- Ecr17Kit: the protocol core and the Winsock transport (same core sources as android/CMakeLists.txt) -->
+    <ClCompile Include="$(Ecr17KitDir)cpp\src\*.cpp" />
+    <ClCompile Include="$(Ecr17KitDir)windows\src\WinsockTransport.cpp" />
     <!-- nitrogen-generated specs -->
     <ClCompile Include="$(Ecr17GeneratedDir)HybridEcr17ClientSpec.cpp" />
     <ClCompile Include="$(Ecr17GeneratedDir)HybridEcr17TransportSpec.cpp" />
@@ -215,6 +219,7 @@
     <Error Condition="!Exists('$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.CppLib.props')" Text="$([System.String]::Format('$(ErrorText)', '$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.CppLib.props'))" />
     <Error Condition="!Exists('$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.CppLib.targets')" Text="$([System.String]::Format('$(ErrorText)', '$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.CppLib.targets'))" />
     <Error Condition="!Exists('$(NitroModulesDir)package.json')" Text="react-native-nitro-modules was not found. Install it in the app next to react-native-windows." />
+    <Error Condition="!Exists('$(Ecr17KitDir)cpp\include\Ecr17Kit\Ecr17Client.hpp')" Text="The ECR17 Kit (@padosoft/ecr17-kit) was not found at $(Ecr17KitDir). Install it next to @padosoft/react-native-ecr17, or set Ecr17KitDir." />
     <Error Condition="!Exists('$(Ecr17GeneratedDir)HybridEcr17ClientSpec.hpp')" Text="Nitrogen output is missing ($(Ecr17GeneratedDir)). Run `npx nitrogen` in the @padosoft/react-native-ecr17 package folder." />
   </Target>
   <Target Name="GenerateNitroIncludeShims" AfterTargets="EnsureEcr17BuildInputs">

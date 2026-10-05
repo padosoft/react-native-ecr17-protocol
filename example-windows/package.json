@@ -8,6 +8,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@padosoft/ecr17-kit": "file:../kit",
 		"@padosoft/react-native-ecr17": "file:../package",
 		"react": "19.2.3",
 		"react-native": "0.84.1",

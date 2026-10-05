@@ -15,6 +15,7 @@
 		"check": "npm --prefix docs-site run check"
 	},
 	"workspaces": [
+		"kit",
 		"package",
 		"example"
 	],

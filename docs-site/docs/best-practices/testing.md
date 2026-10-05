@@ -16,9 +16,11 @@ The C++ test suite covers:
 - Request builders.
 - Response parsers.
 - Session orchestration with ACK, NAK, progress, receipt, timeout, and retry policy.
+- The client: auto-connect, the reconnect before a send, and, for every command, that a financial command is never re-sent after a drop.
+- On Windows, the Winsock transport against a loopback server.
 
 ```bash
-cmake -S package/cpp/tests -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S kit -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```

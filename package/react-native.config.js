@@ -18,7 +18,9 @@ module.exports = {
 			/** @type {import('@react-native-community/cli-types').IOSDependencyParams} */
 			ios: {},
 			/** @type {import('@react-native-community/cli-types').AndroidDependencyParams} */
-			android: {},
+			// android/build.gradle sets the namespace inside ext.nitroModule
+			// (@padosoft/native-modules), where autolinking can't read it.
+			android: { packageName: "com.padosoft.ecr17" },
 			windows: windowsNativeProject,
 		},
 	},
