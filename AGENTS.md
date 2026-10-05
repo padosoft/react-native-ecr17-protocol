@@ -14,7 +14,8 @@ async Promise API to JS.
 A **bun monorepo** (`workspaces: ["packages/*", "apps/example"]`):
 
 ```
-packages/ecr17/              @padosoft/ecr17 — the native library (no React)
+packages/ecr17/              @padosoft/ecr17 — the native C++ core (no React, no JS)
+packages/ecr17-node/         @padosoft/ecr17-node — the Node.js API (Node-API addon + TS)
 packages/react-native-ecr17/ @padosoft/react-native-ecr17 — the React Native binding
 apps/example/                Expo debug console (iOS / Android), a workspace
 apps/example-windows/        RNW console: npm, NOT a workspace (RNW pins an older RN)
@@ -36,12 +37,14 @@ example or tool app in `apps/`. Roadmap: README "Roadmap" section.
   retransmit + timeout) → `Ecr17Client` (auto-connect, pre-send probe, money-safe retry).
   `Transport` is the byte-stream interface; `PosixTransport` (macOS/Linux, `posix/`),
   `WinsockTransport` (Windows, `windows/`) and `FakeTransport` (tests) implement it.
-  **Node.js API**: `src/` (TypeScript `Ecr17Client`, same API as the RN binding; built with
-  tsdown) over `node/addon.cpp` (Node-API: config/requests in, raw core structs out; one
-  worker thread per client, results/events back via thread-safe functions). `src/mappers.ts`
-  maps raw structs to public types exactly like `HybridEcr17Client.cpp` — keep the two in sync,
-  and `src/types.ts` in sync with the RN package's types. Usable from native apps: CMake (`ecr17::ecr17`), the `Ecr17` pod, the `Ecr17`
-  Swift package (root `Package.swift`, tags `X.Y.Z` from 2.0.0).
+  Usable from native apps: CMake (`ecr17::ecr17`), the `Ecr17` pod, the `Ecr17` Swift package
+  (root `Package.swift`, tags `X.Y.Z` from 2.0.0). Pure C++ source: no JS entry.
+- **`packages/ecr17-node/` — `@padosoft/ecr17-node`**, the Node.js API over the core: `src/`
+  (TypeScript `Ecr17Client`, same API as the RN binding; built with tsdown) over
+  `node/addon.cpp` (Node-API: config/requests in, raw core structs out; one worker thread per
+  client, results/events back through one ordered thread-safe function). `src/mappers.ts` maps
+  raw structs to public types exactly like `HybridEcr17Client.cpp` — keep the two in sync, and
+  `src/types.ts` in sync with the RN package's types.
 - **`packages/react-native-ecr17/` — `@padosoft/react-native-ecr17`**, the Nitro binding (namespace
   `margelo::nitro::ecr17`, pod `ReactNativeEcr17` = nitro.json `iosModuleName`; Android lib
   stays `libEcr17.so`): `HybridEcr17Client` maps the Nitro types onto `@padosoft/ecr17`'s
@@ -91,12 +94,12 @@ still has open, valid reviewer comments.
 - `cpp-tests` (fast, ~1 min): the real correctness gate — builds/runs the core's
   GoogleTest suite (`cmake -S packages/ecr17`). Keep it green.
 - `ts-checks` (fast): typecheck + nitrogen codegen.
-- `Node.js addon` (`node.yml`, ~3 min): builds `@padosoft/ecr17`'s Node-API addon on
+- `Node.js addon` (`node.yml`, ~3 min): builds `@padosoft/ecr17-node`'s Node-API addon on
   linux-x64, linux-arm64, darwin-arm64 and win32-x64, runs `node --test` against the fake
   terminal (so Winsock IS exercised on Windows CI through Node), uploads each `ecr17.node`;
-  plus typecheck (`packages/ecr17/tsconfig.ci.json`: CI's token can't read the private
+  plus typecheck (`packages/ecr17-node/tsconfig.ci.json`: CI's token can't read the private
   `@padosoft/config`, so it is stripped, as in ts-checks) + a tsdown build with the preset's flags. The release
-  workflow calls it and ships the binaries in `packages/ecr17/prebuilds/`.
+  workflow calls it and ships the binaries in `packages/ecr17-node/prebuilds/`.
 - **Windows has no C++/RNW CI job (by decision): verify it LOCALLY** on this Windows host
   (VS 2022 Build Tools / VS 2026 + Windows SDK in `D:\Windows Kits\10`):
   1. Core tests, Winsock transport included (no Nitro or RNW needed):

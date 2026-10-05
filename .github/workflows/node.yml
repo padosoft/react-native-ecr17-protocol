@@ -1,9 +1,9 @@
 name: Node.js addon
 
-# Builds @padosoft/ecr17's Node-API addon (packages/ecr17/node) on every platform we ship a
+# Builds @padosoft/ecr17-node's Node-API addon (packages/ecr17-node/node) on every platform we ship a
 # prebuild for, runs the Node tests against a fake terminal over real TCP (POSIX transport
 # on Linux/macOS, Winsock on Windows), and uploads each ecr17.node. The release workflow
-# calls it (workflow_call) and puts the binaries in packages/ecr17/prebuilds/.
+# calls it (workflow_call) and puts the binaries in packages/ecr17-node/prebuilds/.
 on:
   push:
     branches: [main]
@@ -58,18 +58,18 @@ jobs:
           echo "NODE_PATH=$RUNNER_TEMP/tools/node_modules" >> "$GITHUB_ENV"
 
       - name: Build the addon
-        working-directory: packages/ecr17
+        working-directory: packages/ecr17-node
         run: node "$RUNNER_TEMP/tools/node_modules/cmake-js/bin/cmake-js" compile --directory node --out build
 
       - name: Node tests
-        working-directory: packages/ecr17
+        working-directory: packages/ecr17-node
         run: node --test "test/*.test.ts"
 
       - name: Upload the prebuild
         uses: actions/upload-artifact@v4
         with:
           name: prebuild-${{ matrix.target }}
-          path: packages/ecr17/build/Release/ecr17.node
+          path: packages/ecr17-node/build/Release/ecr17.node
           if-no-files-found: error
 
   typescript:
@@ -94,9 +94,9 @@ jobs:
           bun install
 
       - name: Typecheck (self-contained config)
-        working-directory: packages/ecr17
+        working-directory: packages/ecr17-node
         run: bunx tsc --noEmit -p tsconfig.ci.json
 
       - name: Build (tsdown, preset flags)
-        working-directory: packages/ecr17
+        working-directory: packages/ecr17-node
         run: bunx tsdown --no-config src/index.ts -f esm -f cjs --platform node --shims --dts --tsconfig tsconfig.ci.json

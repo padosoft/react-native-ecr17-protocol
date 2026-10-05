@@ -161,7 +161,7 @@ export function loadNativeClient(): NativeClientConstructor {
 	const path = candidates.find((candidate) => existsSync(candidate));
 	if (!path) {
 		throw new Error(
-			`@padosoft/ecr17: no native addon for ${process.platform}-${process.arch}. ` +
+			`@padosoft/ecr17-node: no native addon for ${process.platform}-${process.arch}. ` +
 				`Looked in:\n  ${candidates.join("\n  ")}\n` +
 				"Build it from source with `npx cmake-js compile --directory node --out build` " +
 				"in the package folder (needs CMake and a C++20 compiler).",

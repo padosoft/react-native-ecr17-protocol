@@ -85,8 +85,8 @@ build job. Org disallows making the package public anyway.
       SwiftPM opt-in (release tags each core version `X.Y.Z`); `docs-site/` → `apps/docs/`; every `.mjs`
       script → `.ts`. ⚠️ `native_dependency`'s SPM branch is broken upstream (calls a non-existent
       `Pod::Specification#spm_dependency`): fix in react-native-support before the opt-in works.
-- [x] PR D (`feat/ecr17-node`, stacked on #26) — `@padosoft/ecr17` Node.js API: `PosixTransport`
-      (posix/, 14 loopback tests), Node-API addon (node/addon.cpp, cmake-js), TS client (src/,
+- [x] PR D (#28, `feat/ecr17-node`, stacked on #26) — `@padosoft/ecr17-node` (own package) Node.js API;
+      `PosixTransport` in the core (posix/, 14 loopback tests), Node-API addon (node/addon.cpp, cmake-js), TS client (src/,
       tsdown via @padosoft/config), 17 Node tests vs a fake terminal (mutation-checked money
       safety), `node.yml` CI matrix (linux x64/arm64, darwin-arm64, win32-x64) + prebuilds in the
       release, docs page apps/docs/docs/nodejs.md. Verified locally on macOS only.

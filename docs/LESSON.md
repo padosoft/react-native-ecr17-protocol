@@ -311,7 +311,12 @@
 - Scripts are `.ts`: root ones run with `bun`, `apps/docs/scripts` with `node` ≥ 22.18
   (type stripping; `apps/docs/.node-version` is 24, `"type": "module"` for top-level await).
 
-## Node.js API (`@padosoft/ecr17` src/ + node/) — 2026-10-05
+## Node.js API (`@padosoft/ecr17-node`: src/ + node/) — 2026-10-05
+- Its own package (not inside the core): the core npm package stays pure C++ source for
+  every consumer, the Node package carries dist/ + prebuilds/. Layering: core (protocol +
+  POSIX/Winsock transports) ← RN, Node, and later Swift/Kotlin/.NET APIs, each a thin layer.
+  node/CMakeLists.txt finds the core via ECR17_DIR, else Node resolution of
+  `@padosoft/ecr17`, else the monorepo sibling (CI installs no workspace).
 - Shape: TypeScript `Ecr17Client` (same API/types as the RN binding) → `node/addon.cpp`
   (Node-API via node-addon-api 8, NAPI_VERSION 8) → `padosoft::ecr17::Ecr17Client` →
   `PosixTransport` / `WinsockTransport`. The addon converts requests and returns the core's
@@ -350,6 +355,8 @@
   a full-width PAN. Parity over prettiness.
 - The money-safety Node test was mutation-checked: making `shouldRetryAfterReconnect` ignore
   `safeToRetry` fails it ("the payment must go out exactly once").
+- A missing addon used to HANG the suite (setup threw after the fake terminal started
+  listening): setup now closes the terminal when the client can't be created.
 - `node --test "test/*.test.ts"` runs TS directly (Node ≥ 22.18 strips types; tests import
   only `node:` modules + ../src). CI therefore installs ONLY cmake-js + node-addon-api into
   `$RUNNER_TEMP/tools` with `NODE_PATH` pointing there (node/CMakeLists.txt resolves

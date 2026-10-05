@@ -27,7 +27,9 @@ const clients: Ecr17Client[] = [];
 async function setup(overrides: Partial<Ecr17Config> = {}): Promise<void> {
 	terminal = new FakeTerminal();
 	const port = await terminal.listen();
-	client = createEcr17Client({
+	// If the client can't be created (e.g. no addon built), the terminal is closed so the
+	// suite fails instead of hanging on its open server.
+	client = createEcr17ClientOrClose(terminal, {
 		host: "127.0.0.1",
 		port,
 		terminalId: TERMINAL_ID,
@@ -41,6 +43,18 @@ async function setup(overrides: Partial<Ecr17Config> = {}): Promise<void> {
 	clients.push(client);
 }
 
+function createEcr17ClientOrClose(
+	owner: FakeTerminal,
+	config: Ecr17Config,
+): Ecr17Client {
+	try {
+		return createEcr17Client(config);
+	} catch (error) {
+		void owner.close();
+		throw error;
+	}
+}
+
 function payments(): number {
 	return terminal.requests.filter((r) => commandOf(r.request) === "P").length;
 }
@@ -48,7 +62,7 @@ function payments(): number {
 describe("Ecr17Client (Node.js)", () => {
 	beforeEach(() => setup());
 	afterEach(async () => {
-		client.close();
+		client?.close();
 		await terminal.close();
 	});
 	after(() => {

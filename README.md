@@ -160,12 +160,12 @@ first-class:
 | iOS native transport (Swift / Network.framework) | ✅ *(verified on device)* |
 | Windows native transport (C++ / Winsock, React Native Windows New Arch) | 🧪 *(built, loopback-tested and smoke-tested in the app locally; not yet verified on a terminal)* |
 | Native C++ library, usable without React Native ([`@padosoft/ecr17`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/packages/ecr17)) | ✅ *(CMake, CocoaPods, Swift Package Manager; POSIX and Winsock transports)* |
-| Node.js API ([`@padosoft/ecr17`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/packages/ecr17#nodejs): the same JS API, Node-API addon over the same C++ client) | ✅ *(CI-tested on Linux, macOS and Windows against a fake terminal; not yet on a physical terminal)* |
+| Node.js API ([`@padosoft/ecr17-node`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/packages/ecr17-node): the same JS API, Node-API addon over the same C++ client) | ✅ *(CI-tested on Linux, macOS and Windows against a fake terminal; not yet on a physical terminal)* |
 
 ## 🗺️ Roadmap
 
-The protocol lives in a React-free native library, `@padosoft/ecr17`, so Node.js and native apps
-can use it without React Native. Next:
+The protocol lives in a React-free native library, `@padosoft/ecr17`, so Node.js
+(`@padosoft/ecr17-node`) and native apps can use it without React Native. Next:
 
 | Item | What |
 |------|------|
@@ -353,7 +353,6 @@ packages/
 │   ├── cpp/tests/             # GoogleTest + FakeTransport
 │   ├── posix/                 # PosixTransport, macOS / Linux (+ loopback tests)
 │   ├── windows/               # WinsockTransport (+ loopback tests)
-│   ├── src/, node/            # Node.js API: TypeScript client + Node-API addon
 │   └── Ecr17.podspec          # the Ecr17 pod (Package.swift at the repo root is the Swift package)
 └── react-native-ecr17/        # @padosoft/react-native-ecr17 — the Nitro binding, no protocol logic
     ├── cpp/Ecr17Client/       # HybridEcr17Client: Nitro types <-> ecr17::Ecr17Client
@@ -384,7 +383,7 @@ Linux (14 tests, incl. no SIGPIPE on a closed peer), `WinsockTransport` on Windo
 
 The Node.js API has its own end-to-end tests (TypeScript → Node-API addon → core → TCP →
 a scripted fake terminal), incl. a payment interrupted by a drop that must go out exactly
-once: `cd packages/ecr17 && bun run build:node && bun run test:node`.
+once: `cd packages/ecr17-node && bun run build:node && bun run test:node`.
 
 ## 🧾 Tokenization & receipts
 

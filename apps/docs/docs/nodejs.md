@@ -1,11 +1,11 @@
 ---
 title: Node.js
-description: Use the ECR17 client from Node.js through @padosoft/ecr17, a Node-API addon over the same C++ core as React Native.
+description: Use the ECR17 client from Node.js through @padosoft/ecr17-node, a Node-API addon over the same C++ core as React Native.
 ---
 
 # Node.js
 
-`@padosoft/ecr17`, the C++ protocol core, also ships a **Node.js API**: a TypeScript client over a Node-API addon. It has the same API as `@padosoft/react-native-ecr17` (the same `createEcr17Client`, methods, requests, results and events) and runs the same C++ client, so the auto-connect, the pre-send liveness probe and the money-safe retry policy are the same code.
+`@padosoft/ecr17-node` is the **Node.js API**: a TypeScript client over a Node-API addon, built on the C++ protocol core (`@padosoft/ecr17`). It has the same API as `@padosoft/react-native-ecr17` (the same `createEcr17Client`, methods, requests, results and events) and runs the same C++ client, so the auto-connect, the pre-send liveness probe and the money-safe retry policy are the same code.
 
 Use it for POS back-ends, kiosks, command-line tools and tests on macOS, Linux and Windows.
 
@@ -18,17 +18,17 @@ Use it for POS back-ends, kiosks, command-line tools and tests on macOS, Linux a
 ## Install
 
 ```bash
-npm install @padosoft/ecr17
+npm install @padosoft/ecr17-node
 ```
 
 ::: callout warning "Not on npm yet"
-`@padosoft/ecr17` and the build helpers it depends on (`@padosoft/native-modules`) are not published on npm yet.
+`@padosoft/ecr17-node`, the core `@padosoft/ecr17` and the build helpers the core depends on (`@padosoft/native-modules`) are not published on npm yet.
 :::
 
 ## Usage
 
 ```ts
-import { createEcr17Client } from "@padosoft/ecr17";
+import { createEcr17Client } from "@padosoft/ecr17-node";
 
 const client = createEcr17Client({
   host: "192.168.1.50",
@@ -82,10 +82,10 @@ With `autoReconnect`, a command interrupted by a drop is re-sent only if it is r
 
 ## Build from source
 
-On a platform without a prebuild, build the addon in the package folder. It needs CMake 3.21+ and a C++20 compiler:
+On a platform without a prebuild, build the addon in the package folder. It needs CMake 3.21+ and a C++20 compiler; the core's C++ sources come from the `@padosoft/ecr17` dependency:
 
 ```bash
-cd node_modules/@padosoft/ecr17
+cd node_modules/@padosoft/ecr17-node
 npx cmake-js compile --directory node --out build
 ```
 
@@ -96,7 +96,7 @@ The addon is looked up in `build/Release/ecr17.node`, then `prebuilds/<platform>
 The Node tests drive the whole stack (TypeScript → addon → core → TCP) against a scripted fake terminal. They include a payment interrupted by a drop, which must go out exactly once. CI (`Node.js addon`) runs them on Linux, macOS and Windows and uploads each addon for the release.
 
 ```bash
-cd packages/ecr17
+cd packages/ecr17-node
 bun run build:node
 bun run test:node
 ```
