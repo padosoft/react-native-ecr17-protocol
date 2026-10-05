@@ -3,16 +3,16 @@
 #include "pch.h"
 #include "AutolinkedNativeModules.g.h"
 
-// Includes from @padosoft/react-native-ecr17
-#include <winrt/Ecr17.h>
+// Includes from @padosoft/react-native-nitro-windows
+#include <winrt/NitroWindows.h>
 
 namespace winrt::Microsoft::ReactNative
 {
 
 void RegisterAutolinkedNativeModulePackages(winrt::Windows::Foundation::Collections::IVector<winrt::Microsoft::ReactNative::IReactPackageProvider> const& packageProviders)
 { 
-    // IReactPackageProviders from @padosoft/react-native-ecr17
-    packageProviders.Append(winrt::Ecr17::ReactPackageProvider());
+    // IReactPackageProviders from @padosoft/react-native-nitro-windows
+    packageProviders.Append(winrt::NitroWindows::ReactPackageProvider());
 }
 
 }

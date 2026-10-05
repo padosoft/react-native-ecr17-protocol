@@ -21,16 +21,16 @@ RNW's `rnw-dependencies.ps1` script (in `node_modules/react-native-windows/scrip
 
 ## Setup
 
-Install the package and Nitro:
+Install the package, its C++ Kit, the Nitro host and Nitro. The host, `@padosoft/react-native-nitro-windows`, is not published yet: link it from a [react-native-support](https://github.com/padosoft/react-native-support) checkout (`file:…/packages/react-native-nitro-windows`), as `example-windows` does.
 
 ```bash
-npm install @padosoft/react-native-ecr17 react-native-nitro-modules
+npm install @padosoft/react-native-ecr17 @padosoft/ecr17-kit @padosoft/react-native-nitro-windows react-native-nitro-modules
 ```
 
-Add the Windows autolink helper to the app's `react-native.config.js`:
+Add the host's autolink helper to the app's `react-native.config.js`:
 
 ```js
-const { windowsAppDependencies } = require("@padosoft/react-native-ecr17/windows-autolink");
+const { windowsAppDependencies } = require("@padosoft/react-native-nitro-windows");
 
 module.exports = {
   dependencies: windowsAppDependencies(),
@@ -58,18 +58,18 @@ const client = createEcr17Client({
 ```
 
 ::: callout info "Why the autolink helper"
-`react-native-nitro-modules` does not ship a Windows project yet. The package's own DLL provides the `NitroModules` TurboModule that Nitro's JS calls, installs Nitro into the JS runtime, and registers `Ecr17Client` and `Ecr17Transport`. `windowsAppDependencies()` tells the React Native CLI to skip Nitro's missing Windows project.
+`react-native-nitro-modules` does not ship a Windows project yet, and Nitro must exist once per app. The app's Nitro host (`@padosoft/react-native-nitro-windows`) provides the `NitroModules` TurboModule that Nitro's JS calls, installs Nitro into the JS runtime, and registers `Ecr17Client` and `Ecr17Transport`. `windowsAppDependencies()` tells the React Native CLI to skip Nitro's missing Windows project.
 :::
 
 ## How it works
 
-- `Ecr17.dll` implements `NitroModules.install()`. It runs Nitro's `install()` with RNW's JSI runtime and `CallInvoker`.
+- The app's Nitro host, `@padosoft/react-native-nitro-windows` (not published yet), implements `NitroModules.install()`. It registers this package's HybridObjects, then runs Nitro's `install()` with RNW's JSI runtime and `CallInvoker`. This package ships no Windows project: it declares its C++ in `package.json` (`nitroWindows`), and the host compiles it together with the Kit's.
 - `Ecr17Client` is the shared C++ `HybridEcr17Client` over the Kit's `Ecr17Client`, the same code as on iOS and Android.
 - `Ecr17Transport` is `HybridEcr17TransportWindows`, the Nitro face of the Kit's C++ `WinsockTransport` (iOS uses Swift, Android uses Kotlin).
-- The DLL compiles Nitro's C++ runtime from the app's `node_modules/react-native-nitro-modules`.
-- Before compiling, MSBuild runs `scripts/windows-nitro-shims.mjs`, which writes `<NitroModules/…>` header shims because MSVC has no header map.
+- The host compiles Nitro's C++ runtime from the app's `node_modules/react-native-nitro-modules`, once for every Nitro package in the app.
+- The host also generates the `<NitroModules/…>` header shims MSVC needs, because MSVC has no header map.
 
-Only one native module per app can provide the `NitroModules` TurboModule. Another Nitro library that ships the same shim would conflict.
+Every Nitro package that supports Windows goes through the same host, so several of them can live in one app.
 
 ## Payment safety on Windows
 

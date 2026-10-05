@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <PropertyGroup Label="Microsoft.ReactNative Experimental Features">
-    <!-- Used only when building Ecr17.sln on its own. A consuming app's solution provides its own copy. -->
-    <RnwNewArch>true</RnwNewArch>
-    <UseExperimentalNuget>true</UseExperimentalNuget>
-    <ReactExperimentalFeaturesSet>true</ReactExperimentalFeaturesSet>
-  </PropertyGroup>
-</Project>

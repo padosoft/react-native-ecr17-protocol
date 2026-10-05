@@ -22,6 +22,12 @@ RNW's `rnw-dependencies.ps1` installs anything missing.
 
 ## Run
 
+The app's Nitro host, `@padosoft/react-native-nitro-windows`, is not published yet.
+`package.json` links it from a
+[react-native-support](https://github.com/padosoft/react-native-support) checkout next to
+this repo (`../../react-native-support`). Clone it there first; until the host is merged,
+check out its `feat/nitro-windows-host` branch.
+
 The library's nitrogen output must exist first. From the repo root:
 
 ```bash
@@ -67,8 +73,8 @@ If the build and deploy succeed but the final launch fails with a `Get-AppxPacka
 error, PowerShell 7 can't load the Appx module. The app is installed anyway: start
 the app (Ecr17Example) from the Start menu.
 
-Without the MSIX tools you can still compile and link everything (including
-`Ecr17.dll`) by building only the app project:
+Without the MSIX tools you can still compile and link everything (including the
+Nitro host DLL) by building only the app project:
 
 ```bash
 msbuild windows/Ecr17Example.sln /t:Ecr17Example /restore /m /p:Configuration=Debug /p:Platform=x64

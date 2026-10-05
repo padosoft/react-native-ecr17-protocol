@@ -10,6 +10,7 @@
 	"dependencies": {
 		"@padosoft/ecr17-kit": "file:../kit",
 		"@padosoft/react-native-ecr17": "file:../package",
+		"@padosoft/react-native-nitro-windows": "file:../../react-native-support/packages/react-native-nitro-windows",
 		"react": "19.2.3",
 		"react-native": "0.84.1",
 		"react-native-nitro-modules": "0.37.1",

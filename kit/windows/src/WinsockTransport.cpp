@@ -2,6 +2,10 @@
 
 #include <ws2tcpip.h>
 
+// Linked from the source, so a consumer that only adds the sources (the Nitro host,
+// a .vcxproj) needs no linker setting. CMake links it too.
+#pragma comment(lib, "ws2_32.lib")
+
 #include <algorithm>
 #include <climits>
 #include <stdexcept>

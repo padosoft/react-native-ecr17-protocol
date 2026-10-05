@@ -6,11 +6,9 @@
 // whose static initializer loads libEcr17.so (System.loadLibrary) so the Nitro
 // HybridObjects are registered before JS creates them.
 //
-// On React Native Windows the CLI links windows/Ecr17.sln (see windows-autolink.js).
-// That DLL installs Nitro itself, so apps also skip Nitro's missing Windows
-// project via `windowsAppDependencies()`.
-
-const { windowsNativeProject } = require("./windows-autolink");
+// React Native Windows has no project here: the app's Nitro host
+// (@padosoft/react-native-nitro-windows) compiles windows/ and the Kit from the
+// "nitroWindows" manifest in package.json.
 
 module.exports = {
 	dependency: {
@@ -21,7 +19,7 @@ module.exports = {
 			// android/build.gradle sets the namespace inside ext.nitroModule
 			// (@padosoft/native-modules), where autolinking can't read it.
 			android: { packageName: "com.padosoft.ecr17" },
-			windows: windowsNativeProject,
+			windows: null,
 		},
 	},
 };

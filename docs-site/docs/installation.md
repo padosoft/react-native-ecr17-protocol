@@ -54,10 +54,10 @@ The package ships `react-native.config.js` so React Native autolinking can regis
 
 ## Windows
 
-React Native Windows (New Architecture) needs one extra line in the app's `react-native.config.js`, because `react-native-nitro-modules` has no Windows project and this package's DLL installs Nitro instead:
+React Native Windows (New Architecture) needs the app's Nitro host, `@padosoft/react-native-nitro-windows` (not published yet: link it from a react-native-support checkout), because `react-native-nitro-modules` has no Windows project. In the app's `react-native.config.js`:
 
 ```js
-const { windowsAppDependencies } = require("@padosoft/react-native-ecr17/windows-autolink");
+const { windowsAppDependencies } = require("@padosoft/react-native-nitro-windows");
 
 module.exports = {
   dependencies: windowsAppDependencies(),
