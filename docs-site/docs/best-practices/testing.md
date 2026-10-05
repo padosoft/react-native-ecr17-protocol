@@ -20,7 +20,7 @@ The C++ test suite covers:
 - On Windows, the Winsock transport against a loopback server.
 
 ```bash
-cmake -S kit -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S packages/ecr17-kit -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
@@ -28,7 +28,7 @@ ctest --test-dir build --output-on-failure
 ## TypeScript checks
 
 ```bash
-cd package
+cd packages/react-native-ecr17
 bunx tsc --noEmit -p tsconfig.ci.json
 ```
 

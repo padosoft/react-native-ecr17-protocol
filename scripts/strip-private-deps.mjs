@@ -16,9 +16,9 @@ const keep = new Set(
 );
 const manifests = [
 	"package.json",
-	"kit/package.json",
-	"package/package.json",
-	"example/package.json",
+	"packages/ecr17-kit/package.json",
+	"packages/react-native-ecr17/package.json",
+	"apps/example/package.json",
 ];
 
 for (const path of manifests) {

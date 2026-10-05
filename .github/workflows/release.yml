@@ -6,7 +6,7 @@ on:
     branches:
       - main
     paths:
-      - "package/*/CHANGELOG.md"
+      - "packages/*/CHANGELOG.md"
       - ".changeset/*"
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
@@ -53,32 +53,36 @@ jobs:
       # create packages in this org, so it fails with ENEEDAUTH / create_package 403.
       - name: Publish to GitHub Packages
         if: always()
-        working-directory: package
         run: |
-          NAME=$(node -p "require('./package.json').name")
-          VERSION=$(node -p "require('./package.json').version")
-          # Only mirror a version that actually made it to npmjs (i.e. a real publish run).
-          # Done before writing the scoped .npmrc so the scope->GitHub mapping can't
-          # redirect this npmjs lookup.
-          if ! npm view "$NAME@$VERSION" --registry=https://registry.npmjs.org version >/dev/null 2>&1; then
-            echo "$NAME@$VERSION is not on npmjs yet — nothing to mirror."
-            exit 0
-          fi
-          # IMPORTANT: this is an npm workspace; npm ignores .npmrc inside workspace
-          # members (package/). The auth/registry config must live at the repo root.
+          # IMPORTANT: this is a workspace; npm ignores .npmrc inside workspace members
+          # (packages/*). The auth/registry config must live at the repo root, and it is
+          # written only after the npmjs lookups so the scope->GitHub mapping can't
+          # redirect them.
           NPMRC="$GITHUB_WORKSPACE/.npmrc"
-          {
-            echo "@padosoft:registry=https://npm.pkg.github.com/"
-            echo "//npm.pkg.github.com/:_authToken=${GESCAT_NPM_TOKEN}"
-          } > "$NPMRC"
           trap 'rm -f "$NPMRC"' EXIT
-          if npm view "$NAME@$VERSION" --registry=https://npm.pkg.github.com version >/dev/null 2>&1; then
-            echo "$NAME@$VERSION already on GitHub Packages — nothing to do."
-            exit 0
-          fi
-          # Build output is produced by the publish path (codegen); rebuild if absent.
-          [ -d lib ] || bun run codegen
-          npm publish --registry=https://npm.pkg.github.com
+          for dir in packages/*/; do
+            NAME=$(node -p "require('./${dir}package.json').name")
+            VERSION=$(node -p "require('./${dir}package.json').version")
+            # Only mirror a version that actually made it to npmjs (i.e. a real publish run).
+            rm -f "$NPMRC"
+            if ! npm view "$NAME@$VERSION" --registry=https://registry.npmjs.org version >/dev/null 2>&1; then
+              echo "$NAME@$VERSION is not on npmjs yet — nothing to mirror."
+              continue
+            fi
+            {
+              echo "@padosoft:registry=https://npm.pkg.github.com/"
+              echo "//npm.pkg.github.com/:_authToken=${GESCAT_NPM_TOKEN}"
+            } > "$NPMRC"
+            if npm view "$NAME@$VERSION" --registry=https://npm.pkg.github.com version >/dev/null 2>&1; then
+              echo "$NAME@$VERSION already on GitHub Packages — nothing to do."
+              continue
+            fi
+            # The RN package's build output comes from the publish path (codegen); rebuild if absent.
+            if [ "$NAME" = "@padosoft/react-native-ecr17" ] && [ ! -d "${dir}lib" ]; then
+              (cd "$dir" && bun run codegen)
+            fi
+            (cd "$dir" && npm publish --registry=https://npm.pkg.github.com)
+          done
         env:
           GESCAT_NPM_TOKEN: ${{ secrets.GESCAT_NPM_TOKEN }}
           # Provenance/sigstore is npmjs-only; it breaks publishing to GitHub Packages.

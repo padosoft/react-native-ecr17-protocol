@@ -68,4 +68,4 @@ Requirements, the Winsock transport and how Nitro is installed are covered in [W
 
 ## Example app
 
-The repository includes an Expo-based debug console in `example/` for exercising commands and live logs against a real terminal. `example-windows/` is a smaller console for React Native Windows.
+The repository includes an Expo-based debug console in `apps/example/` for exercising commands and live logs against a real terminal. `apps/example-windows/` is a smaller console for React Native Windows.

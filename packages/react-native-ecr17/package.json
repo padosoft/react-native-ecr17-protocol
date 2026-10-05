@@ -61,14 +61,15 @@
 			"@padosoft/ecr17-kit"
 		]
 	},
-	"workspaces": [
-		"example"
-	],
-	"repository": "https://github.com/padosoft/react-native-ecr17-protocol.git",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/padosoft/react-native-ecr17-protocol.git",
+		"directory": "packages/react-native-ecr17"
+	},
 	"author": "padosoft",
 	"license": "MIT",
 	"bugs": "https://github.com/padosoft/react-native-ecr17-protocol/issues",
-	"homepage": "https://github.com/padosoft/react-native-ecr17-protocol#readme",
+	"homepage": "https://github.com/padosoft/react-native-ecr17-protocol/tree/main/packages/react-native-ecr17#readme",
 	"publishConfig": {
 		"access": "public",
 		"registry": "https://registry.npmjs.org/"

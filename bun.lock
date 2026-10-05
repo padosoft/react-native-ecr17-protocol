@@ -12,7 +12,7 @@
         "typescript": "^6.0.3",
       },
     },
-    "example": {
+    "apps/example": {
       "name": "example",
       "version": "1.0.0",
       "dependencies": {
@@ -51,7 +51,7 @@
         "typescript": "~6.0.3",
       },
     },
-    "kit": {
+    "packages/ecr17-kit": {
       "name": "@padosoft/ecr17-kit",
       "version": "1.0.0",
       "dependencies": {
@@ -64,7 +64,7 @@
         "@padosoft/expo",
       ],
     },
-    "package": {
+    "packages/react-native-ecr17": {
       "name": "@padosoft/react-native-ecr17",
       "version": "2.0.1",
       "dependencies": {
@@ -80,10 +80,14 @@
         "typescript": "^6.0.3",
       },
       "peerDependencies": {
+        "@padosoft/react-native-nitro-windows": "*",
         "react": "*",
         "react-native": "*",
         "react-native-nitro-modules": "*",
       },
+      "optionalPeers": [
+        "@padosoft/react-native-nitro-windows",
+      ],
     },
   },
   "packages": {
@@ -475,13 +479,13 @@
 
     "@padosoft/config": ["@padosoft/config@1.2.2", "https://npm.pkg.github.com/download/@padosoft/config/1.2.2/7c8521e544e1797446eedb7d1840cac52e4bccae", {}, "sha512-GVZderGc/0wh0QRoEmzp9B5xlV+OpE8eHZrhbe/K3ko/cEPPXWe+whxq0wLAIMb2h+h6tUb6yYB7T3dg8M8JTg=="],
 
-    "@padosoft/ecr17-kit": ["@padosoft/ecr17-kit@workspace:kit"],
+    "@padosoft/ecr17-kit": ["@padosoft/ecr17-kit@workspace:packages/ecr17-kit"],
 
     "@padosoft/expo": ["@padosoft/expo@1.11.0", "https://npm.pkg.github.com/download/@padosoft/expo/1.11.0/9c4d50c4e73db0cced72ee951c6a6ed52baa4e3d", { "dependencies": { "es-toolkit": "^1.52.0", "zod": "^4.6.5" }, "peerDependencies": { "expo": ">=57.0.24", "expo-splash-screen": ">=56", "react-native-boost": ">=2", "react-native-reanimated": ">=4" } }, "sha512-VQfnWBEj3TPZWWJDm/JzI9rd1RgrJY+Q98OTaQ4dhBsW9o8eeKaWG7+RfBWPiVQGCyR8QYK8E4btTDoU7BOJoA=="],
 
     "@padosoft/native-modules": ["@padosoft/native-modules@1.5.0", "https://npm.pkg.github.com/download/@padosoft/native-modules/1.5.0/80f20462de0fbb973f1970105200a9bd88501cbf", { "bin": { "padosoft-lint-android": "scripts/lint-android.sh", "padosoft-lint-swift": "scripts/lint-swift.sh", "padosoft-prebuild-android": "scripts/prebuild-android.sh", "padosoft-prebuild-ios": "scripts/prebuild-ios.sh" } }, "sha512-0jtjx2zOeHfGWIZYGjlvTfXLQA0vUy7Qc00E60/lvFf5NFv/OeQD1H1mgRAWU/uOUMoWT2fcqgMb5XbuIKZqgg=="],
 
-    "@padosoft/react-native-ecr17": ["@padosoft/react-native-ecr17@workspace:package"],
+    "@padosoft/react-native-ecr17": ["@padosoft/react-native-ecr17@workspace:packages/react-native-ecr17"],
 
     "@pnpm/deps.graph-sequencer": ["@pnpm/deps.graph-sequencer@1100.0.1", "", {}, "sha512-pOr5+q1fLYKwFN3LAJuGZEnfXDcQ73zqgDHMtGy+K+uIoUqyY+6MeDCWFwfu+4EFuq76I5EPFofoNAI+Bmmq4A=="],
 
@@ -759,7 +763,7 @@
 
     "event-target-shim": ["event-target-shim@5.0.1", "", {}, "sha512-i/2XbnSz/uxRCU6+NdVJgKWDTM427+MqYbkQzD321DuCQJUqOuJKIA0IM2+W2xtYHdKOmZ4dR6fExsd4SXL+WQ=="],
 
-    "example": ["example@workspace:example"],
+    "example": ["example@workspace:apps/example"],
 
     "expo": ["expo@57.0.26", "", { "dependencies": { "@babel/runtime": "^7.20.0", "@expo/cli": "^57.0.27", "@expo/config": "~57.0.9", "@expo/config-plugins": "~57.0.9", "@expo/devtools": "~57.0.1", "@expo/dom-webview": "~57.0.1", "@expo/fingerprint": "^0.20.13", "@expo/local-build-cache-provider": "^57.0.8", "@expo/log-box": "^57.0.4", "@expo/metro": "~56.0.2", "@expo/metro-config": "~57.0.12", "@ungap/structured-clone": "^1.3.0", "babel-preset-expo": "~57.0.13", "expo-asset": "~57.0.18", "expo-constants": "~57.0.20", "expo-file-system": "~57.0.7", "expo-font": "~57.0.4", "expo-keep-awake": "~57.0.2", "expo-modules-autolinking": "~57.0.13", "expo-modules-core": "~57.0.20", "pretty-format": "^29.7.0", "react-refresh": "^0.14.2", "whatwg-url-minimum": "^0.1.2" }, "peerDependencies": { "@expo/metro-runtime": "*", "react": "*", "react-dom": "*", "react-native": "*", "react-native-web": "*", "react-native-webview": "*" }, "optionalPeers": ["@expo/metro-runtime", "react-dom", "react-native-web", "react-native-webview"], "bin": { "expo": "bin/cli", "fingerprint": "bin/fingerprint", "expo-modules-autolinking": "bin/autolinking" } }, "sha512-U1rsFwcuZNnU61Z/YLnnVC/ZqP0wpxh/rCKUMff3ot/rhLpxFY1zxEqu4vyaexyvBAB1mwpl9lA/ltcHBoQGyg=="],
 

@@ -36,10 +36,10 @@ bower_components
 
 # Compiled binary addons (https://nodejs.org/api/addons.html)
 build/Release
-# Kit builds (cmake -S kit -B build / build-kit / build-win)
+# Kit builds (cmake -S packages/ecr17-kit -B build / build-kit / build-win)
 build-win/
 build-kit/
-kit/build/
+packages/ecr17-kit/build/
 
 # Dependency directories
 node_modules/

@@ -23,11 +23,11 @@
   `%LOCALAPPDATA%\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.POSIX.UCRT_*\mingw64\bin\g++.exe`
   (installed via `winget install BrechtSanders.WinLibs.POSIX.UCRT`). Compile the
   unit-testable core into a throwaway harness for a real local RED→GREEN check:
-  `g++ -std=c++20 -I kit/cpp/include <harness>.cpp kit/cpp/src/*.cpp`.
+  `g++ -std=c++20 -I packages/ecr17-kit/cpp/include <harness>.cpp packages/ecr17-kit/cpp/src/*.cpp`.
   ⚠️ The preinstalled MSVC (VS18) is broken — its STL `include/` dir is missing, so
   `cl` can't compile; use g++. ⚠️ Avira quarantines a freshly-built `.exe`
   (false positive) → add a one-time AV exclusion for the build dir. The full GoogleTest
-  suite is `cmake -S kit` (CI: `cpp-tests`, Ubuntu). Native Swift/Kotlin + the
+  suite is `cmake -S packages/ecr17-kit` (CI: `cpp-tests`, Ubuntu). Native Swift/Kotlin + the
   Nitro-integrated C++ are not in it: Android via the Android build CI job, iOS by
   building the Expo example on a Mac.
 - `copilot` CLI present for the local review loop.
@@ -129,20 +129,20 @@
 ## Windows (React Native Windows, New Architecture)
 - **Since the Kit split (2026-10-05) this package ships no Windows project.** The app's Nitro
   host, `@padosoft/react-native-nitro-windows` (react-native-support, NOT published yet:
-  `example-windows` links it from `../../react-native-support`), does what the old Ecr17 DLL
+  `apps/example-windows` links it from a react-native-support checkout next to this repo), does what the old Ecr17 DLL
   did (below): it compiles the `nitroWindows` sources of every Nitro package + their Kits'
   `nativeKit.windows` sources, and calls `registerEcr17HybridObjects()` before installing
   Nitro. Its own vcxproj links no `ws2_32`: the Kit's WinsockTransport.cpp links it with
   `#pragma comment(lib, ...)`. The notes below describe the original DLL; the mechanics
   (install, shims, registry) moved into the host unchanged.
 - Approach copied from NitromelonDB PR #65. **Nitro has no Windows project**
-  (mrousavy/nitro#168), so `package/windows/Ecr17` (a WinAppSDK DLL) provided the
+  (mrousavy/nitro#168), so `packages/react-native-ecr17/windows/Ecr17` (a WinAppSDK DLL) provided the
   `NitroModules` TurboModule (`REACT_MODULE(NitroModules)` + sync `install()`):
   `TryGetOrCreateContextRuntime(ctx)` + `CallInvokerDispatcher(ctx.CallInvoker())`
   → `margelo::nitro::install`, then `HybridObjectRegistry::registerHybridObjectConstructor`
   for `Ecr17Client` and `Ecr17Transport` (the jobs nitrogen's OnLoad/Autolinking do
   on Android/iOS). Only ONE module per app may provide `NitroModules`.
-- Apps must spread `windowsAppDependencies()` (`package/windows-autolink.js`) into
+- Apps must spread `windowsAppDependencies()` (`packages/react-native-ecr17/windows-autolink.js`) into
   their `react-native.config.js`: it sets `react-native-nitro-modules`
   `platforms.windows = null` so the RNW CLI doesn't look for Nitro's missing vcxproj.
 - The transport spec is `{ios: swift, android: kotlin}`, but nitrogen still emits the
@@ -150,17 +150,17 @@
   (`HybridEcr17TransportWindows`, a thin wrapper over the Kit's `WinsockTransport`). Its probe is `recv(MSG_PEEK)` after an instant (0 ms)
   `select` — no PushbackInputStream needed, still write-free/non-consuming. Per-connection
   state object so a stale reader from an old socket can't flip a new connection.
-- MSVC has no `<NitroModules/…>` header map → `package/scripts/windows-nitro-shims.mjs`
-  writes one-line shims (gitignored `package/windows/include/`), run by MSBuild.
+- MSVC has no `<NitroModules/…>` header map → `packages/react-native-ecr17/scripts/windows-nitro-shims.mjs`
+  writes one-line shims (gitignored `packages/react-native-ecr17/windows/include/`), run by MSBuild.
 - Nitro 0.37 added `cpp/views/RawPropsCompat.cpp` (needs Fabric renderer headers):
   excluded from the vcxproj and the test build (no views here).
 - **RNW pins RN exactly** (`react-native-windows@0.84.0` → `react-native@0.84.1`), while
-  the Expo example is RN 0.86 → `example-windows/` is a separate **npm** project
-  (`file:../package` symlink), not a bun workspace. Its Metro `resolveRequest` maps the
-  library to `../package/src` and re-roots bare imports from the library to the app,
+  the Expo example is RN 0.86 → `apps/example-windows/` is a separate **npm** project
+  (`file:../../packages/react-native-ecr17` symlink), not a bun workspace. Its Metro `resolveRequest` maps the
+  library to `packages/react-native-ecr17/src` and re-roots bare imports from the library to the app,
   otherwise Metro walks up to the repo-root node_modules (RN 0.86 + 2nd Nitro copy).
 - `init-windows` files are CRLF; RNW New Arch defaults to SDK 10.0.22621 → pin
-  10.0.26100 in `example-windows/windows/ExperimentalFeatures.props` (installed locally).
+  10.0.26100 in `apps/example-windows/windows/ExperimentalFeatures.props` (installed locally).
 - Local verification done for this: example `tsc`, a full `react-native bundle
   --platform windows` (checked no `../node_modules` modules leaked in), shim script.
   The transport + DLL are built and tested locally (see AGENTS.md).
@@ -221,22 +221,22 @@
   which runs `JNI_OnLoad → registerAllNatives()` and registers the HybridObjects
   BEFORE JS creates them. RN CLI autolinking discovers it by globbing
   `*Package.{kt,java}` under `android/src/main/java`, inferring the FQN and
-  emitting `new Ecr17Package()`. This requires **`package/react-native.config.js`**
+  emitting `new Ecr17Package()`. This requires **`packages/react-native-ecr17/react-native.config.js`**
   (declares the android/ios platforms) — it was missing despite being listed in
   `package.json` `files`, which can leave the package unlinked and the `.so`
   unloaded at runtime. The reference Nitro module (corasan/image-compressor) ships
   the same file; runtime load is verified only by running the example app.
-- Android `package/android/CMakeLists.txt` lists the binding's C++ sources **explicitly**
-  (every new `package/cpp/**/*.cpp` MUST be added there) and globs the Kit's
+- Android `packages/react-native-ecr17/android/CMakeLists.txt` lists the binding's C++ sources **explicitly**
+  (every new `packages/react-native-ecr17/cpp/**/*.cpp` MUST be added there) and globs the Kit's
   `cpp/src/*.cpp`, found with `node --print require.resolve('@padosoft/ecr17-kit/package.json')`.
 - iOS: `nitro_module` globs `cpp/**/*.{hpp,cpp}` of the binding; the Kit is its own pod.
 - C++20 on both; Android NDK provides POSIX sockets in libc (no extra link lib).
 - Include convention: the Kit's headers are `<Ecr17Kit/Name.hpp>`; the binding's are
-  subdir-qualified from `package/cpp` (`"Ecr17Client/HybridEcr17Client.hpp"`).
+  subdir-qualified from `packages/react-native-ecr17/cpp` (`"Ecr17Client/HybridEcr17Client.hpp"`).
 
-## Kit split (`kit/` = @padosoft/ecr17-kit) — 2026-10-05
+## Kit split (`packages/ecr17-kit/` = @padosoft/ecr17-kit) — 2026-10-05
 - The protocol core + `Ecr17Client` (auto-connect, pre-send probe, money-safe retry) moved
-  out of Nitro into `kit/`, namespace `padosoft::ecr17`. It needs its own `LrcMode`: in the
+  out of Nitro into `packages/ecr17-kit/`, namespace `padosoft::ecr17`. It needs its own `LrcMode`: in the
   binding's namespace the name is taken by nitrogen's generated enum, so the binding uses
   `namespace kit = padosoft::ecr17;` and never `using namespace` both (PaymentRequest,
   TokenizationRequest, ConnectionState… exist on both sides).
@@ -268,7 +268,7 @@
   `expo`, so as a dependency it would drag Expo into bare and Windows apps.
 - npm does not install the dependencies of a `file:` linked package into the app: they
   resolve from the linked package's own folder upward (here: the root `bun install`). So
-  `example-windows` needs no registry config for the private @padosoft packages — and an
+  `apps/example-windows` needs no registry config for the private @padosoft packages — and an
   `.npmrc` with `${GESCAT_NPM_TOKEN}` would make npm FAIL for anyone without the variable.
 - npm writes `package-lock.json` with `package.json`'s indentation: after editing a tab-indented
   `package.json`, a lockfile that used 2 spaces is rewritten whole. Re-serialize it with 2
@@ -286,10 +286,10 @@
   stream→frame splitting belongs to the transport layer.
 
 ## Review/CI learnings
-- `package/tsconfig.json` and `biome.json` extend `@padosoft/config/*`, a
+- `packages/react-native-ecr17/tsconfig.json` and `biome.json` extend `@padosoft/config/*`, a
   **private package not on npm** (404). So the repo's own `bun run typecheck`
   fails in any clean env with `File '@padosoft/config/typescript/base' not found`.
-  Workaround/fix: a committed self-contained `package/tsconfig.ci.json` (no
+  Workaround/fix: a committed self-contained `packages/react-native-ecr17/tsconfig.ci.json` (no
   private `extends`) used for local + CI typecheck. `react-native-nitro-modules`
   and `@types/react` ARE installed, so a standalone tsconfig resolves fine.
 - Nitrogen parsing of the `.nitro.ts` specs is itself strong type validation:
@@ -344,7 +344,7 @@
 - **Android native build pipeline WORKS** (verified green): checkout → setup-java 17 →
   setup-bun → install(strip @padosoft) → `bunx nitrogen` → `bunx expo prebuild -p android` →
   android-actions/setup-android → `sdkmanager "ndk;27.1.12297006" "cmake;3.22.1"` →
-  `./gradlew assembleDebug` (working-dir example/android). ~15-20 min. Manual dispatch only.
+  `./gradlew assembleDebug` (working-dir apps/example/android). ~15-20 min. Manual dispatch only.
 - **Verified Nitro C++ APIs** (compiled into the APK, use as-is):
   - `#include <NitroModules/HybridObjectRegistry.hpp>`;
     `auto o = HybridObjectRegistry::createHybridObject("Ecr17Transport");`
@@ -358,7 +358,7 @@
 - **Verified Nitro Kotlin APIs**: `class X : HybridEcr17TransportSpec()`;
   `Promise.parallel { ... }` (blocking on a thread) / `Promise.async { suspend }`;
   `ArrayBuffer.copy(ByteArray)`, `arrayBuffer.toByteArray()`. Impl goes in
-  `package/android/src/main/java/com/margelo/nitro/ecr17/`. Nitro auto-generates
+  `packages/react-native-ecr17/android/src/main/java/com/margelo/nitro/ecr17/`. Nitro auto-generates
   the C++↔Kotlin JNI bridge — NO manual JNI needed (corasan ref was for non-nitro).
 - **Name-clash trap**: parser structs in our namespace must NOT reuse a
   Nitro-generated struct name (had to rename our `CurrencyExchange` → `DccInfo`,

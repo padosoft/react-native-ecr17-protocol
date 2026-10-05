@@ -4,10 +4,10 @@
 
 	"files": {
 		"includes": [
-			"example/**/*.ts",
-			"example/**/*.tsx",
-			"package/**/*.ts",
-			"package/**/*.tsx"
+			"apps/example/**/*.ts",
+			"apps/example/**/*.tsx",
+			"packages/**/*.ts",
+			"packages/**/*.tsx"
 		]
 	}
 }

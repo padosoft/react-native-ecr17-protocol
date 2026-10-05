@@ -3,9 +3,9 @@
 # and the client (auto-connect, money-safe retry). On Windows it also builds the
 # Winsock transport.
 #
-#   cmake -S kit -B build && cmake --build build && ctest --test-dir build --output-on-failure
+#   cmake -S packages/ecr17-kit -B build && cmake --build build && ctest --test-dir build --output-on-failure
 #
-# The React Native binding (package/) compiles the same sources through its own
+# The React Native binding (packages/react-native-ecr17) compiles the same sources through its own
 # build (Android CMake, the Ecr17Kit pod, the Windows Nitro host).
 cmake_minimum_required(VERSION 3.21)
 project(Ecr17Kit VERSION 1.0.0 LANGUAGES CXX)

@@ -22,7 +22,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: README in sync (root mirrors package/README.md)
+      - name: README in sync (root mirrors packages/react-native-ecr17/README.md)
         run: node scripts/sync-readme.mjs --check
 
       - name: Setup Bun
@@ -40,9 +40,9 @@ jobs:
           bun install
 
       - name: Nitrogen codegen
-        working-directory: package
+        working-directory: packages/react-native-ecr17
         run: bunx nitrogen
 
       - name: Typecheck (self-contained config)
-        working-directory: package
+        working-directory: packages/react-native-ecr17
         run: bunx tsc --noEmit -p tsconfig.ci.json

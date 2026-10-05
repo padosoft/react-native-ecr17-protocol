@@ -2,7 +2,7 @@
 
 The **ECR17** payment-terminal protocol (Nexi Group POS terminals over LAN) as a
 React-free C++20 library. It is the native core of
-[`@padosoft/react-native-ecr17`](../package), and it is usable on its own from
+[`@padosoft/react-native-ecr17`](../react-native-ecr17), and it is usable on its own from
 native apps.
 
 | Part | Folder | What |
@@ -89,7 +89,7 @@ On Windows the target also contains `WinsockTransport` and links `ws2_32`.
 
 ### React Native
 
-Add [`@padosoft/react-native-ecr17`](../package). For iOS, it needs this pod in
+Add [`@padosoft/react-native-ecr17`](../react-native-ecr17). For iOS, it needs this pod in
 the app's Podfile. Add the config plugin, which uses `@padosoft/expo` (an optional
 peer: install it in Expo apps):
 
@@ -111,7 +111,7 @@ under `<Ecr17Kit/…>`, and a C++-only module map. It loads
 ## Tests
 
 ```bash
-cmake -S kit -B build && cmake --build build && ctest --test-dir build --output-on-failure
+cmake -S packages/ecr17-kit -B build && cmake --build build && ctest --test-dir build --output-on-failure
 ```
 
 | Suite | Runs on | Covers |

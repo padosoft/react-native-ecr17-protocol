@@ -29,7 +29,7 @@ npm run build
 ## Package checks
 
 ```bash
-cd package
+cd packages/react-native-ecr17
 bunx tsc --noEmit -p tsconfig.ci.json
 ```
 

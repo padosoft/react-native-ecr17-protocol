@@ -5,7 +5,7 @@ description: Public TypeScript types for requests, responses, and events.
 
 # Types
 
-This page summarizes the most important public types. The source of truth is `package/src/types/client.ts` and `package/src/specs/client.nitro.ts`.
+This page summarizes the most important public types. The source of truth is `packages/react-native-ecr17/src/types/client.ts` and `packages/react-native-ecr17/src/specs/client.nitro.ts`.
 
 ## Unions
 

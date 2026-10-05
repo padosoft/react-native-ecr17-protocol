@@ -40,7 +40,7 @@ NitroWindows.dll  (the host)  install(): registerEcr17HybridObjects(), then Nitr
         ▼
 HybridObjectRegistry
   "Ecr17Client"    → HybridEcr17Client          ../cpp → Ecr17Kit::Ecr17Client (shared with iOS/Android)
-  "Ecr17Transport" → HybridEcr17TransportWindows windows/ → Ecr17Kit::WinsockTransport (kit/windows)
+  "Ecr17Transport" → HybridEcr17TransportWindows windows/ → Ecr17Kit::WinsockTransport (packages/ecr17-kit/windows)
 ```
 
 ## Transport and payment safety
@@ -58,14 +58,14 @@ transport mirrors the Kotlin one:
 - `onDisconnect` fires exactly once per unexpected drop, never for `disconnect()`.
 
 The money-safety rules are unchanged: a financial command is never re-sent after
-a drop (`kit/cpp/include/Ecr17Kit/RetryPolicy.hpp`). Recover a lost result with
+a drop (`packages/ecr17-kit/cpp/include/Ecr17Kit/RetryPolicy.hpp`). Recover a lost result with
 `sendLastResult()` (command `G`).
 
 The Kit's tests run the protocol core, the client and the Winsock transport
 against a loopback server. No Nitro or RNW is needed:
 
 ```powershell
-cmake -S kit -B build-win
+cmake -S packages/ecr17-kit -B build-win
 cmake --build build-win --config Release
 ctest --test-dir build-win -C Release --output-on-failure
 ```
@@ -98,8 +98,8 @@ npm install @padosoft/react-native-ecr17 @padosoft/ecr17-kit @padosoft/react-nat
 > ⚠️ `@padosoft/react-native-nitro-windows` is **not published yet**. Until it is,
 > link it from a checkout of
 > [react-native-support](https://github.com/padosoft/react-native-support), as
-> `example-windows` does
-> (`"file:../../react-native-support/packages/react-native-nitro-windows"`).
+> `apps/example-windows` does
+> (`"file:../../../react-native-support/packages/react-native-nitro-windows"`).
 
 In the app's `react-native.config.js`:
 
@@ -121,5 +121,5 @@ npx react-native run-windows
 Autolinking adds the host's project (`NitroWindows.vcxproj`) to the app
 solution. No project comes from this package.
 
-See [`example-windows/`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/example-windows)
+See [`apps/example-windows/`](https://github.com/padosoft/react-native-ecr17-protocol/tree/main/apps/example-windows)
 for a working app.

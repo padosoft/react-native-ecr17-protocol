@@ -21,7 +21,7 @@ RNW's `rnw-dependencies.ps1` script (in `node_modules/react-native-windows/scrip
 
 ## Setup
 
-Install the package, its C++ Kit, the Nitro host and Nitro. The host, `@padosoft/react-native-nitro-windows`, is not published yet: link it from a [react-native-support](https://github.com/padosoft/react-native-support) checkout (`file:…/packages/react-native-nitro-windows`), as `example-windows` does.
+Install the package, its C++ Kit, the Nitro host and Nitro. The host, `@padosoft/react-native-nitro-windows`, is not published yet: link it from a [react-native-support](https://github.com/padosoft/react-native-support) checkout (`file:…/packages/react-native-nitro-windows`), as `apps/example-windows` does.
 
 ```bash
 npm install @padosoft/react-native-ecr17 @padosoft/ecr17-kit @padosoft/react-native-nitro-windows react-native-nitro-modules
@@ -85,9 +85,9 @@ Nothing changes in the retry policy: a payment, reversal or pre-auth is never re
 
 ## Example app and tests
 
-`example-windows/` in the repository is a small RNW console app (status, totals, last result, one payment). It is a separate npm project, because RNW 0.84 pins React Native 0.84.1 while the Expo example uses a newer React Native.
+`apps/example-windows/` in the repository is a small RNW console app (status, totals, last result, one payment). It is a separate npm project, because RNW 0.84 pins React Native 0.84.1 while the Expo example uses a newer React Native.
 
-The Kit's tests (`cmake -S kit`) run the Winsock transport against a loopback server on Windows, with no Nitro or React Native Windows needed: drop detected before send, no bytes written by the probe, none consumed, one disconnect signal per drop, and a fast probe. Windows has no CI job, so run it and the `example-windows` build locally after native changes.
+The Kit's tests (`cmake -S packages/ecr17-kit`) run the Winsock transport against a loopback server on Windows, with no Nitro or React Native Windows needed: drop detected before send, no bytes written by the probe, none consumed, one disconnect signal per drop, and a fast probe. Windows has no CI job, so run it and the `apps/example-windows` build locally after native changes.
 
 ## Status
 

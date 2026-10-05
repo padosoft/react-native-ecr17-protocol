@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Keep the root README.md in sync with package/README.md.
+// Keep the root README.md in sync with packages/react-native-ecr17/README.md.
 //
 // GitHub only renders a README that lives in the repo root, so the polished
 // package README (the one published to npm) is mirrored verbatim to the root to
@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const source = join(root, 'package', 'README.md');
+const source = join(root, 'packages', 'react-native-ecr17', 'README.md');
 const target = join(root, 'README.md');
 
 const wanted = readFileSync(source, 'utf8');
@@ -33,13 +33,13 @@ if (check) {
   }
   if (current !== wanted) {
     console.error(
-      'README.md is out of sync with package/README.md.\n' +
+      'README.md is out of sync with packages/react-native-ecr17/README.md.\n' +
         'Run `npm run sync:readme` and commit the result.',
     );
     process.exit(1);
   }
-  console.log('README.md is in sync with package/README.md.');
+  console.log('README.md is in sync with packages/react-native-ecr17/README.md.');
 } else {
   writeFileSync(target, wanted);
-  console.log('Synced README.md from package/README.md.');
+  console.log('Synced README.md from packages/react-native-ecr17/README.md.');
 }

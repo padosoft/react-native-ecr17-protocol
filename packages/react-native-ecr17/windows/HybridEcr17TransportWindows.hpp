@@ -12,7 +12,7 @@ namespace margelo::nitro::ecr17 {
 // The `Ecr17Transport` HybridObject on Windows: the Kit's WinsockTransport behind
 // the Nitro spec (iOS/Android implement the spec in Swift/Kotlin). All the socket
 // behaviour — the write-free pre-send probe, one drop signal per connection — lives
-// and is tested in the Kit (kit/windows).
+// and is tested in the Kit (packages/ecr17-kit/windows).
 class HybridEcr17TransportWindows : public HybridEcr17TransportSpec {
    public:
     HybridEcr17TransportWindows() : HybridObject(TAG) {}

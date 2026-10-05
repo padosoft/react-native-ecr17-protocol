@@ -6,7 +6,7 @@
 		"skipLibCheck": true,
 		"paths": {
 			"@padosoft/react-native-ecr17": [
-				"../package/src/index.ts"
+				"../../packages/react-native-ecr17/src/index.ts"
 			]
 		}
 	},

@@ -7,7 +7,7 @@
 		"lint": "biome check .",
 		"lint:fix": "biome check . --write --unsafe",
 		"version-packages": "changeset version && bun i --lockfile-only",
-		"publish-packages": "changeset version && (cd package && bun run codegen) && changeset publish",
+		"publish-packages": "changeset version && (cd packages/react-native-ecr17 && bun run codegen) && changeset publish",
 		"sync:readme": "node scripts/sync-readme.mjs",
 		"check:readme": "node scripts/sync-readme.mjs --check",
 		"dev": "npm --prefix docs-site run dev",
@@ -15,9 +15,8 @@
 		"check": "npm --prefix docs-site run check"
 	},
 	"workspaces": [
-		"kit",
-		"package",
-		"example"
+		"packages/*",
+		"apps/example"
 	],
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.15",

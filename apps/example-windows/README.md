@@ -7,11 +7,11 @@ A small ECR17 console on **React Native Windows 0.84** (New Architecture,
 The iOS/Android debug console is the Expo app in [`../example`](../example). The
 two can't share one `package.json`: RNW 0.84 pins React Native **0.84.1**, while
 the Expo app is on SDK 57 / RN 0.86. So this app is **not** a bun workspace: it
-uses npm and its own `package-lock.json`, and links the library with
-`file:../package`.
+uses npm and its own `package-lock.json`, and links the packages with
+`file:../../packages/…`.
 
-How the native side works (Nitro install shim, Winsock transport, header map):
-[`../package/windows/README.md`](../package/windows/README.md).
+How the native side works (the Nitro host, the Winsock transport):
+[`packages/react-native-ecr17/windows/README.md`](../../packages/react-native-ecr17/windows/README.md).
 
 ## Requirements
 
@@ -25,28 +25,28 @@ RNW's `rnw-dependencies.ps1` installs anything missing.
 The app's Nitro host, `@padosoft/react-native-nitro-windows`, is not published yet.
 `package.json` links it from a
 [react-native-support](https://github.com/padosoft/react-native-support) checkout next to
-this repo (`../../react-native-support`). Clone it there first; until the host is merged,
+this repo (`../../../react-native-support` from this folder). Clone it there first; until the host is merged,
 check out its `feat/nitro-windows-host` branch.
 
 The library's nitrogen output must exist first. From the repo root:
 
 ```bash
 bun install
-cd package && bunx nitrogen
+cd packages/react-native-ecr17 && bunx nitrogen
 ```
 
 Then:
 
 ```bash
-cd example-windows
+cd apps/example-windows
 npm install
 npm run windows
 ```
 
 `npm run windows` builds the app and starts Metro. After JS-only changes,
-reload. After native changes (C++ in `package/`), rebuild.
+reload. After native changes (C++ in `packages/react-native-ecr17/`), rebuild.
 
-Metro loads the library straight from `../package/src`, and resolves its imports
+Metro loads the library straight from `packages/react-native-ecr17/src`, and resolves its imports
 from this app's `node_modules`. That keeps the repo root's React Native (the Expo
 app's version) out of the bundle.
 
@@ -62,8 +62,8 @@ re-apply the custom resolver and the SDK pin afterwards.
 
 ## Verifying a native change
 
-There is no Windows CI job. After changing `kit/**`, `package/windows/**` or
-`package/cpp/**`, build and run this app and run the Kit's tests (Winsock included) locally.
+There is no Windows CI job. After changing `packages/ecr17-kit/**`, `packages/react-native-ecr17/windows/**` or
+`packages/react-native-ecr17/cpp/**`, build and run this app and run the Kit's tests (Winsock included) locally.
 
 `npm run windows` builds and deploys the app as an MSIX package. That needs Visual
 Studio's "Windows application development" workload (MSIX packaging tools). The built
@@ -81,7 +81,7 @@ msbuild windows/Ecr17Example.sln /t:Ecr17Example /restore /m /p:Configuration=De
 ```
 
 ```bash
-cmake -S ../kit -B ../build-win
-cmake --build ../build-win --config Release
-ctest --test-dir ../build-win -C Release --output-on-failure
+cmake -S ../../packages/ecr17-kit -B ../../build-win
+cmake --build ../../build-win --config Release
+ctest --test-dir ../../build-win -C Release --output-on-failure
 ```
