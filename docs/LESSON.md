@@ -9,6 +9,16 @@
 - Host is **Windows**; the `Bash` tool runs **bash**, the `PowerShell` tool runs pwsh.
   ⚠️ Do **not** use PowerShell here-strings (`@'...'@`) inside the Bash tool —
   the `@` leaks into the arg. Use a bash heredoc (`<<'EOF' … EOF`) or `git commit -F -`.
+- ⚠️ (2026-10-05) The WinLibs g++ below was **no longer installed** — reinstall with
+  `winget install BrechtSanders.WinLibs.POSIX.UCRT` before using the local harness.
+  The Windows SDK IS installed, but on **`D:\Windows Kits\10`** (10.0.26100 + 10.0.28000;
+  registry `HKLM\SOFTWARE\WOW6432Node\Microsoft\Microsoft SDKs\Windows\v10.0`), not under
+  Program Files — don't conclude "no SDK" from the default path. CMake picks VS 2022
+  Build Tools (MSVC 14.44); `C:\CMake\bin\cmake.exe` works. Windows code is verified LOCALLY
+  (no Windows CI job, by decision) — see AGENTS.md.
+- ⚠️ Backslashes in a Bash-tool heredoc can get collapsed (`"Ecr17\Ecr17.vcxproj"` became
+  `"Ecr17Ecr17.vcxproj"` in a generated .sln). Write files containing Windows paths with
+  the Write tool, then check them.
 - **Local C++ toolchain available**: WinLibs **g++ 16** (MinGW/UCRT) at
   `%LOCALAPPDATA%\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.POSIX.UCRT_*\mingw64\bin\g++.exe`
   (installed via `winget install BrechtSanders.WinLibs.POSIX.UCRT`). Compile the
@@ -115,6 +125,56 @@
   peer-close too but state updates are async (small residual race; no iOS CI →
   best-effort). Only reproducible by RUNNING against a real terminal — no build/unit
   CI catches it.
+
+## Windows (React Native Windows, New Architecture)
+- Approach copied from NitromelonDB PR #65. **Nitro has no Windows project**
+  (mrousavy/nitro#168), so `package/windows/Ecr17` (a WinAppSDK DLL) provides the
+  `NitroModules` TurboModule (`REACT_MODULE(NitroModules)` + sync `install()`):
+  `TryGetOrCreateContextRuntime(ctx)` + `CallInvokerDispatcher(ctx.CallInvoker())`
+  → `margelo::nitro::install`, then `HybridObjectRegistry::registerHybridObjectConstructor`
+  for `Ecr17Client` and `Ecr17Transport` (the jobs nitrogen's OnLoad/Autolinking do
+  on Android/iOS). Only ONE module per app may provide `NitroModules`.
+- Apps must spread `windowsAppDependencies()` (`package/windows-autolink.js`) into
+  their `react-native.config.js`: it sets `react-native-nitro-modules`
+  `platforms.windows = null` so the RNW CLI doesn't look for Nitro's missing vcxproj.
+- The transport spec is `{ios: swift, android: kotlin}`, but nitrogen still emits the
+  shared C++ `HybridEcr17TransportSpec` → Windows implements it directly in C++
+  (`HybridEcr17TransportWindows`, Winsock). Its probe is `recv(MSG_PEEK)` after an instant (0 ms)
+  `select` — no PushbackInputStream needed, still write-free/non-consuming. Per-connection
+  state object so a stale reader from an old socket can't flip a new connection.
+- MSVC has no `<NitroModules/…>` header map → `package/scripts/windows-nitro-shims.mjs`
+  writes one-line shims (gitignored `package/windows/include/`), run by MSBuild.
+- Nitro 0.37 added `cpp/views/RawPropsCompat.cpp` (needs Fabric renderer headers):
+  excluded from the vcxproj and the test build (no views here).
+- **RNW pins RN exactly** (`react-native-windows@0.84.0` → `react-native@0.84.1`), while
+  the Expo example is RN 0.86 → `example-windows/` is a separate **npm** project
+  (`file:../package` symlink), not a bun workspace. Its Metro `resolveRequest` maps the
+  library to `../package/src` and re-roots bare imports from the library to the app,
+  otherwise Metro walks up to the repo-root node_modules (RN 0.86 + 2nd Nitro copy).
+- `init-windows` files are CRLF; RNW New Arch defaults to SDK 10.0.22621 → pin
+  10.0.26100 in `example-windows/windows/ExperimentalFeatures.props` (installed locally).
+- Local verification done for this: example `tsc`, a full `react-native bundle
+  --platform windows` (checked no `../node_modules` modules leaked in), shim script.
+  The transport + DLL are built and tested locally (see AGENTS.md).
+- **MSVC `std::mutex` (SRWLOCK) is NOT fair.** First transport version held the I/O
+  lock across the reader's 100 ms `select`; the probe (`isConnected()`, run before
+  every command) was starved: ~340 ms per call, potentially unbounded. Removing the
+  lock entirely was WRONG too: probe `select` says readable → reader drains the bytes →
+  probe's blocking `recv(MSG_PEEK)` waits for the next frame (a test hung 682 s).
+  Fix: reader waits WITHOUT the lock and takes it only around `recv`; probe holds it for
+  an instant `select(0)` + peek. Both regressions are locked by tests + a ctest TIMEOUT.
+- The RNW `cpp-app` template only RUNS as a deployed MSIX package: launching the built
+  `Ecr17Example.exe` directly aborts (0xC0000409 in ucrtbase) because nothing registers
+  the WinRT classes (Microsoft.ReactNative, Ecr17) for an unpackaged process. Packaging
+  (`run-windows` / the .wapproj) needs VS's MSIX packaging (DesktopBridge) component.
+- The generated app vcxproj sets `<WindowsTargetPlatformVersion>10.0</…>` UNCONDITIONALLY
+  after importing ExperimentalFeatures.props, which defeats the SDK pin (RNW then bumps
+  "10.0" to 10.0.22621 → MSB8036). Make it conditional (`'$(WindowsTargetPlatformVersion)' == ''`).
+- WinRT projected types delete `operator new` (C2280): to leak one on purpose, wrap it
+  in a plain struct and `new` the struct.
+- Transport `connect()` must NOT use `Promise::async`: the client's `ensureConnected()`
+  already blocks a Nitro ThreadPool worker on it, so with busy workers the connect
+  queues and `connectionTimeoutMs` stops bounding it. Use a dedicated thread.
 
 ## Build wiring
 - **Nitro C++ HybridObject impl header MUST be named after `implementationClassName`

@@ -90,6 +90,11 @@
           "icon": "download"
         },
         {
+          "title": "Windows",
+          "path": "/windows",
+          "icon": "monitor"
+        },
+        {
           "title": "Configuration",
           "path": "/configuration",
           "icon": "sliders-horizontal"
