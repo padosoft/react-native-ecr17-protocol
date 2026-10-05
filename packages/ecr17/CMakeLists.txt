@@ -1,7 +1,7 @@
 # ecr17: the ECR17 (Nexi) payment-terminal protocol as a React-free C++20
 # library: framing, LRC, command builders, response parsers, the ACK/NAK session
-# and the client (auto-connect, money-safe retry). On Windows it also builds the
-# Winsock transport.
+# and the client (auto-connect, money-safe retry), plus the TCP transport of the host:
+# POSIX (macOS, Linux) or Winsock (Windows).
 #
 #   cmake -S packages/ecr17 -B build && cmake --build build && ctest --test-dir build --output-on-failure
 #
@@ -27,6 +27,13 @@ target_include_directories(ecr17 PUBLIC
 find_package(Threads REQUIRED)
 target_link_libraries(ecr17 PUBLIC Threads::Threads)
 
+if(UNIX)
+    target_sources(ecr17 PRIVATE posix/src/PosixTransport.cpp)
+    target_include_directories(ecr17 PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/posix/include>
+    )
+endif()
+
 if(WIN32)
     target_sources(ecr17 PRIVATE windows/src/WinsockTransport.cpp)
     target_include_directories(ecr17 PUBLIC
@@ -44,6 +51,9 @@ endif()
 
 install(TARGETS ecr17 EXPORT ecr17Targets ARCHIVE DESTINATION lib)
 install(DIRECTORY cpp/include/ DESTINATION include)
+if(UNIX)
+    install(DIRECTORY posix/include/ DESTINATION include)
+endif()
 if(WIN32)
     install(DIRECTORY windows/include/ DESTINATION include)
 endif()
@@ -63,6 +73,9 @@ if(ECR17_BUILD_TESTS)
     enable_testing()
     include(GoogleTest)
     add_subdirectory(cpp/tests)
+    if(UNIX)
+        add_subdirectory(posix/tests)
+    endif()
     if(WIN32)
         add_subdirectory(windows/tests)
     endif()

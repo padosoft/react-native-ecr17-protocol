@@ -40,6 +40,10 @@ build/Release
 build-win/
 build-kit/
 packages/ecr17/build/
+packages/ecr17-node/build/
+packages/ecr17-node/dist/
+# Node addon prebuilds: produced by the node workflow, added to the npm package at release
+packages/ecr17-node/prebuilds/
 .build/
 .swiftpm/
 

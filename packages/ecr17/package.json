@@ -1,7 +1,7 @@
 {
 	"name": "@padosoft/ecr17",
 	"version": "2.0.0",
-	"description": "The ECR17 (Nexi) payment-terminal protocol as a React-free C++20 library: framing, LRC, commands, parsers, the ACK/NAK session and a money-safe client, plus a Winsock transport for Windows. The native core of @padosoft/react-native-ecr17, usable from native apps (CMake, CocoaPods, Swift Package Manager).",
+	"description": "The ECR17 (Nexi) payment-terminal protocol as a React-free C++20 library: framing, LRC, commands, parsers, the ACK/NAK session and a money-safe client, with TCP transports for POSIX (macOS, Linux) and Windows. The native core of @padosoft/react-native-ecr17 and @padosoft/ecr17-node, usable from native apps (CMake, CocoaPods, Swift Package Manager).",
 	"author": "padosoft",
 	"license": "MIT",
 	"homepage": "https://github.com/padosoft/react-native-ecr17-protocol/tree/main/packages/ecr17#readme",
@@ -21,6 +21,8 @@
 		"react-native.config.js",
 		"cpp/include",
 		"cpp/src",
+		"posix/include",
+		"posix/src",
 		"windows/include",
 		"windows/src",
 		"README.md"

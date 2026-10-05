@@ -1,0 +1,102 @@
+name: Node.js addon
+
+# Builds @padosoft/ecr17-node's Node-API addon (packages/ecr17-node/node) on every platform we ship a
+# prebuild for, runs the Node tests against a fake terminal over real TCP (POSIX transport
+# on Linux/macOS, Winsock on Windows), and uploads each ecr17.node. The release workflow
+# calls it (workflow_call) and puts the binaries in packages/ecr17-node/prebuilds/.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+# github.workflow is the caller's name under workflow_call, so the release's run and this
+# workflow's own run on the same push never wait for each other.
+concurrency:
+  group: ${{ github.workflow }}-node-addon-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  addon:
+    if: github.repository == 'padosoft/react-native-ecr17-protocol'
+    name: Addon + tests (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux binaries are built on the oldest runner image for the widest glibc
+          # compatibility (they need the runner's glibc or newer).
+          - { os: ubuntu-22.04, target: linux-x64 }
+          - { os: ubuntu-22.04-arm, target: linux-arm64 }
+          - { os: macos-latest, target: darwin-arm64 }
+          - { os: windows-latest, target: win32-x64 }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Check the target
+        run: test "$(node -p 'process.platform + "-" + process.arch')" = "${{ matrix.target }}"
+
+      # Only the two build tools: the tests import nothing but node: modules, so the
+      # workspace (React Native, Expo, the private @padosoft tooling) is not installed.
+      - name: Install the build tools
+        run: |
+          npm install --no-save --no-package-lock --prefix "$RUNNER_TEMP/tools" cmake-js@8.0.0 node-addon-api@8.9.2
+          echo "NODE_PATH=$RUNNER_TEMP/tools/node_modules" >> "$GITHUB_ENV"
+
+      - name: Build the addon
+        working-directory: packages/ecr17-node
+        run: node "$RUNNER_TEMP/tools/node_modules/cmake-js/bin/cmake-js" compile --directory node --out build
+
+      - name: Node tests
+        working-directory: packages/ecr17-node
+        run: node --test "test/*.test.ts"
+
+      - name: Upload the prebuild
+        uses: actions/upload-artifact@v4
+        with:
+          name: prebuild-${{ matrix.target }}
+          path: packages/ecr17-node/build/Release/ecr17.node
+          if-no-files-found: error
+
+  typescript:
+    if: github.repository == 'padosoft/react-native-ecr17-protocol'
+    name: Typecheck + tsdown build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      # Like ts-checks: the @padosoft tooling lives on the private GitHub Packages registry,
+      # which CI cannot read, so it is stripped. tsconfig.ci.json reproduces
+      # @padosoft/config's strict options; the build runs with the same flags as its tsdown
+      # preset. (The release builds through the real preset: `bun run build`.)
+      - name: Install dependencies
+        run: |
+          bun scripts/strip-private-deps.ts
+          rm -f bun.lock
+          bun install
+
+      - name: Typecheck (self-contained config)
+        working-directory: packages/ecr17-node
+        run: bunx tsc --noEmit -p tsconfig.ci.json
+
+      - name: Build (tsdown, preset flags)
+        working-directory: packages/ecr17-node
+        run: bunx tsdown --no-config src/index.ts -f esm -f cjs --platform node --shims --dts --tsconfig tsconfig.ci.json

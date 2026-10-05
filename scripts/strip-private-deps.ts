@@ -1,7 +1,7 @@
 // CI helper: drops the @padosoft tooling packages that live on the private GitHub
 // Packages registry (and are not published on npm yet) from every manifest of this
 // repo, so `bun install` needs no registry auth. The workspace packages
-// (@padosoft/ecr17, @padosoft/react-native-ecr17) are kept.
+// (@padosoft/ecr17, @padosoft/ecr17-node, @padosoft/react-native-ecr17) are kept.
 //
 //   bun scripts/strip-private-deps.ts [--keep @padosoft/native-modules,...]
 import { readFileSync, writeFileSync } from "node:fs";
@@ -14,7 +14,11 @@ type DependencyField =
 	| "peerDependencies"
 	| "peerDependenciesMeta";
 
-const workspace = new Set(["@padosoft/ecr17", "@padosoft/react-native-ecr17"]);
+const workspace = new Set([
+	"@padosoft/ecr17",
+	"@padosoft/ecr17-node",
+	"@padosoft/react-native-ecr17",
+]);
 const keepIndex = process.argv.indexOf("--keep");
 const keep = new Set(
 	keepIndex > 0 ? (process.argv[keepIndex + 1] ?? "").split(",") : [],
@@ -22,6 +26,7 @@ const keep = new Set(
 const manifests = [
 	"package.json",
 	"packages/ecr17/package.json",
+	"packages/ecr17-node/package.json",
 	"packages/react-native-ecr17/package.json",
 	"apps/example/package.json",
 ];

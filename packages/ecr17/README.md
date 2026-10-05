@@ -2,17 +2,19 @@
 
 The **ECR17** payment-terminal protocol (Nexi Group POS terminals over LAN) as a
 React-free C++20 library. It is the native core of
-[`@padosoft/react-native-ecr17`](../react-native-ecr17), and it is usable on its own from
+[`@padosoft/react-native-ecr17`](../react-native-ecr17) and
+[`@padosoft/ecr17-node`](../ecr17-node) (the Node.js API), and it is usable on its own from
 native apps.
 
 | Part | Folder | What |
 |---|---|---|
 | Protocol core | `cpp/` | LRC, framing, command builders, response parsers, the ACK/NAK session, and `Ecr17Client` (auto-connect, money-safe retry) |
-| Windows transport | `windows/` | `WinsockTransport`: TCP with the write-free pre-send liveness probe |
+| POSIX transport | `posix/` | `PosixTransport` (macOS, Linux): TCP with the write-free pre-send liveness probe |
+| Windows transport | `windows/` | `WinsockTransport`: the same, on Winsock |
 
 The core builds anywhere a C++20 compiler does. On iOS and Android, the React
-Native binding supplies the TCP transport, in Swift and Kotlin. On Windows, this
-package has its own.
+Native binding supplies the TCP transport, in Swift and Kotlin. On macOS, Linux and
+Windows, this package has its own.
 
 > ⚠️ **Not published on npm yet**, like the `@padosoft` build tooling it uses
 > (`@padosoft/native-modules`, and `@padosoft/expo` for the SwiftPM opt-in). Those live on the private
@@ -20,11 +22,11 @@ package has its own.
 
 ---
 
-## API
+## C++ API
 
 ```cpp
 #include <ecr17/Ecr17Client.hpp>
-#include <ecr17/WinsockTransport.hpp>  // Windows
+#include <ecr17/PosixTransport.hpp>    // macOS, Linux (WinsockTransport.hpp on Windows)
 
 using namespace padosoft::ecr17;
 
@@ -35,7 +37,7 @@ config.terminalId = "12345678";
 config.cashRegisterId = "00000001";
 config.autoReconnect = true;
 
-Ecr17Client client(std::make_shared<WinsockTransport>(), config);
+Ecr17Client client(std::make_shared<PosixTransport>(), config);
 client.setOnProgress([](const std::string& message) { /* "ATTENDERE PREGO" … */ });
 
 PaymentRequest request;
@@ -84,7 +86,8 @@ add_subdirectory(path/to/ecr17 ecr17)
 target_link_libraries(MyApp PRIVATE ecr17::ecr17)
 ```
 
-On Windows the target also contains `WinsockTransport` and links `ws2_32`.
+The target also contains the host's transport: `PosixTransport` on macOS and Linux,
+`WinsockTransport` on Windows (and links `ws2_32`).
 `cmake --install` exports `ecr17::ecr17` for `find_package(ecr17)`.
 
 ### Swift Package Manager (iOS, macOS, visionOS)
@@ -141,9 +144,13 @@ cmake -S packages/ecr17 -B build && cmake --build build && ctest --test-dir buil
 | Suite | Runs on | Covers |
 |---|---|---|
 | `ecr17_tests` | any host (CI: `cpp-tests`) | LRC, framing, builders, parsers, session, retry policy, client, protocol flows; `Integration.RealTerminalStatus` with `ECR17_TERMINAL_HOST` set |
-| `ecr17_winsock_tests` | Windows | `WinsockTransport` against a loopback server: pre-send probe, never writes, never consumes a protocol byte, one drop signal |
+| `ecr17_posix_tests` | macOS, Linux (CI: `cpp-tests`) | `PosixTransport` against a loopback server: pre-send probe, never writes, never consumes a protocol byte, one drop signal, no SIGPIPE |
+| `ecr17_winsock_tests` | Windows | `WinsockTransport`: the same contract |
 
 GoogleTest comes from `find_package(GTest)` when installed, otherwise from FetchContent.
+
+The Node.js API (`@padosoft/ecr17-node`) also tests this core end to end, over real TCP,
+on Linux, macOS and Windows (CI: `Node.js addon`).
 
 ## Layout
 
@@ -151,7 +158,8 @@ GoogleTest comes from `find_package(GTest)` when installed, otherwise from Fetch
 cpp/include/ecr17/      public headers: LrcMode, Lcr, PacketCodec, Ecr17Protocol, Ecr17Response,
                         Ecr17Session, RetryPolicy, Transport, ClientTypes, Ecr17Client
 cpp/src/                the core's sources
-cpp/tests/              GoogleTest + FakeTransport + PosixTcpTransport (integration test)
+cpp/tests/              GoogleTest + FakeTransport
+posix/                  PosixTransport + its loopback tests
 windows/                WinsockTransport + its loopback tests
 Ecr17.podspec           iOS / visionOS pod
 app.plugin.js           Expo config plugin (adds the pod unless SwiftPM is on)
